@@ -1,0 +1,11 @@
+{
+  "github": {
+    "silent": true
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/github-raw.js?path=$1"
+    }
+  ]
+}
