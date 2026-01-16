@@ -26,6 +26,8 @@
 github-raw/
 ├── api/
 │   └── github-raw.js          # 🎯 主服务文件（单文件架构）
+├── .gitignore                 # Git 忽略配置
+├── .nvmrc                     # Node 版本配置
 ├── package.json               # 项目配置
 ├── vercel.json                # Vercel 部署配置
 ├── README.md                  # 用户文档
@@ -40,9 +42,9 @@ github-raw/
 
 ```javascript
 class RateLimiter {
-  constructor(maxRequests = 10, windowMs = 1000) {
+  constructor(maxRequests = MAX_REQUESTS_PER_SECOND) {
     this.maxRequests = maxRequests;
-    this.windowMs = windowMs;
+    this.windowMs = 1000; // 1秒时间窗口
     this.requests = [];
   }
 
@@ -58,7 +60,6 @@ class RateLimiter {
       return false;
     }
 
-    // 记录当前请求
     this.requests.push(now);
     return true;
   }
@@ -83,26 +84,70 @@ class SimpleCache {
     this.timers = new Map();
   }
 
-  set(key, value, ttl = 300) {
-    // 设置缓存和过期定时器
-    this.cache.set(key, { value, timestamp: Date.now(), ttl: ttl * 1000 });
+  generateKey(path) {
+    return `github_raw_${path}`;
+  }
 
+  set(key, value, ttl = CACHE_TTL) {
+    // 清除旧定时器
+    if (this.timers.has(key)) {
+      clearTimeout(this.timers.get(key));
+    }
+
+    // 存储缓存
+    this.cache.set(key, {
+      value,
+      timestamp: Date.now(),
+    });
+
+    // 设置过期定时器
     const timer = setTimeout(() => this.delete(key), ttl * 1000);
     this.timers.set(key, timer);
 
-    // 大小限制检查
-    if (this.cache.size > 100) {
+    // 检查缓存大小限制
+    if (this.cache.size > CACHE_MAX_SIZE) {
       this.evictOldest();
     }
   }
 
   get(key) {
     const item = this.cache.get(key);
-    if (!item || Date.now() - item.timestamp > item.ttl) {
+
+    if (!item) {
+      return null;
+    }
+
+    // 检查是否过期
+    if (Date.now() - item.timestamp > CACHE_TTL * 1000) {
       this.delete(key);
       return null;
     }
+
     return item.value;
+  }
+
+  delete(key) {
+    this.cache.delete(key);
+    if (this.timers.has(key)) {
+      clearTimeout(this.timers.get(key));
+      this.timers.delete(key);
+    }
+  }
+
+  evictOldest() {
+    let oldestKey = null;
+    let oldestTime = Date.now();
+
+    for (const [key, item] of this.cache.entries()) {
+      if (item.timestamp < oldestTime) {
+        oldestTime = item.timestamp;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      this.delete(oldestKey);
+    }
   }
 }
 ```
@@ -119,17 +164,23 @@ class SimpleCache {
 #### 输入验证
 
 ```javascript
+// 路径格式：owner/repo/branch/path
+const pathPattern = /^[^\/]+\/[^\/]+\/[^\/]+\/.+$/;
+
+// 危险模式检测
+const DANGEROUS_PATH_PATTERNS = [
+  /\.\./, // 父目录符号
+  /\/\//, // 双斜杠
+  /^\//,  // 以斜杠开头
+  /\/$/,  // 以斜杠结尾
+];
+
 function validatePath(path) {
   if (!path || typeof path !== "string") return false;
-  if (path.length > 1000) return false;
-
-  // 路径格式：owner/repo/branch/path
-  const pathPattern = /^[^\/]+\/[^\/]+\/[^\/]+\/.+$/;
+  if (path.length > MAX_PATH_LENGTH) return false;
   if (!pathPattern.test(path)) return false;
 
-  // 危险模式检测
-  const dangerousPatterns = [/\.\./, /\/\//, /^\//, /\/$/];
-  return !dangerousPatterns.some((pattern) => pattern.test(path));
+  return !DANGEROUS_PATH_PATTERNS.some((pattern) => pattern.test(path));
 }
 ```
 
@@ -229,11 +280,22 @@ graph TD
 ### 安全配置
 
 ```javascript
-const SECURITY_CONFIG = {
-  REDIRECT_URL: "https://www.baidu.com",
-  MAX_PATH_LENGTH: 1000,
-  ALLOWED_FILE_TYPES: ["text", "image", "application", "audio", "video"],
-};
+// GitHub 相关配置
+const GITHUB_BASE_URL = "https://raw.githubusercontent.com";
+const REQUEST_TIMEOUT = 10000; // 10秒
+
+// 安全相关配置
+const REDIRECT_URL = "https://www.baidu.com";
+const MAX_PATH_LENGTH = 1000;
+const DANGEROUS_PATH_PATTERNS = [
+  /\.\./, // 父目录符号
+  /\/\//, // 双斜杠
+  /^\//,  // 以斜杠开头
+  /\/$/,  // 以斜杠结尾
+];
+
+// 文件类型白名单
+const ALLOWED_FILE_TYPES = ["text", "image", "application", "audio", "video"];
 ```
 
 ## 🚀 部署配置
@@ -298,8 +360,7 @@ vercel dev
 if (process.env.NODE_ENV === "development") {
   console.info("调试信息", {
     path: sanitizedPath,
-    cacheStats: cache.getStats(),
-    rateLimitStats: rateLimiter.getStats(),
+    cacheSize: cache.cache.size,
   });
 }
 ```
@@ -391,7 +452,15 @@ if (process.env.NODE_ENV === "development") {
 
 ## 🔄 版本历史
 
-### v2.2.0 (当前版本)
+### v2026.01.16.165956 (当前版本)
+
+- 🎉 全面优化代码结构，提升可读性和可维护性
+- ✨ 提取常量（DANGEROUS_PATH_PATTERNS、ALLOWED_FILE_TYPES）
+- 🚀 优化辅助函数（redirectToSafePage、setCacheHeaders）
+- 💾 简化注释，保留有价值说明
+- ✅ 完整的功能测试和回归测试
+
+### v2.2.0
 
 - ✨ 新增速度限制功能
 - 🚀 简化项目结构为单文件
