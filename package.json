@@ -1,6 +1,6 @@
 {
   "name": "github-raw-proxy",
-  "version": "2026.01.16.165956",
+  "version": "2026.01.16.172754",
   "description": "GitHub Raw 文件代理服务 - 简单、快速、安全",
   "type": "module",
   "main": "api/github-raw.js",

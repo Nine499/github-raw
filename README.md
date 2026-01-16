@@ -2,8 +2,8 @@
 
 > 🚀 一个简单、高效、安全的 GitHub 原始文件代理服务，专为加速访问而设计
 
-[![Version](https://img.shields.io/badge/version-2026.01.16.165956-blue)](https://github.com/Nine499/github-raw)
-[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green)](https://nodejs.org)
+[![Version](https://img.shields.io/badge/version-2026.01.16.172754-blue)](https://github.com/Nine499/github-raw)
+[![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-green)](https://nodejs.org)
 [![License](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Nine499/github-raw)
 
@@ -64,7 +64,7 @@ curl "https://your-domain.com/Nine499/github-raw/master/README.md?nine-token=YOU
 
 ### 环境要求
 
-- Node.js >= 18.0.0
+- Node.js >= 24.0.0
 - npm 或 yarn
 
 ### 安装步骤
@@ -184,7 +184,6 @@ github-raw/
 ├── .gitignore                 # Git 忽略配置
 ├── .nvmrc                     # Node 版本配置
 ├── package.json               # 项目配置
-├── package-lock.json          # 依赖锁定文件
 ├── vercel.json                # Vercel 部署配置
 ├── README.md                  # 项目文档（本文件）
 └── IFLOW.md                   # 详细技术文档
