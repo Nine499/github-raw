@@ -2,7 +2,7 @@
 
 > 🚀 一个简单、高效、安全的 GitHub 原始文件代理服务，专为加速访问而设计
 
-[![Version](https://img.shields.io/badge/version-2026.01.16.172754-blue)](https://github.com/Nine499/github-raw)
+[![Version](https://img.shields.io/badge/version-2026.01.16.175755-blue)](https://github.com/Nine499/github-raw/releases)
 [![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-green)](https://nodejs.org)
 [![License](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Nine499/github-raw)
@@ -17,6 +17,7 @@
 ✅ **跨域支持** - 完整的 CORS 配置，支持跨域访问  
 ✅ **极简架构** - 单文件实现，代码清晰易懂，易于维护  
 ✅ **自动扩缩容** - 基于 Vercel Serverless，自动处理并发  
+✅ **现代标准** - 使用 WHATWG URL API，避免弃用警告  
 
 ---
 
@@ -66,6 +67,7 @@ curl "https://your-domain.com/Nine499/github-raw/master/README.md?nine-token=YOU
 
 - Node.js >= 24.0.0
 - npm 或 yarn
+- Vercel CLI（可选，用于本地开发）
 
 ### 安装步骤
 
@@ -88,6 +90,16 @@ vercel dev
 ```
 
 开发服务器将在 `http://localhost:3000` 启动。
+
+### 测试示例
+
+```bash
+# 测试基本功能
+curl "http://localhost:3000/Nine499/github-raw/master/README.md?nine-token=YOUR_TOKEN"
+
+# 测试缓存（第二次请求应该更快）
+curl "http://localhost:3000/Nine499/github-raw/master/README.md?nine-token=YOUR_TOKEN"
+```
 
 ---
 
@@ -132,6 +144,17 @@ Access-Control-Allow-Origin: *
 
 验证失败时，将重定向到安全页面（默认：百度）。
 
+### 错误处理
+
+| 错误原因 | HTTP 状态码 | 说明 |
+|----------|-------------|------|
+| 缺少令牌 | 302 | 未提供 `nine-token` 参数 |
+| 令牌无效 | 302 | 令牌与环境变量不匹配 |
+| 请求频率超限 | 302 | 超过每秒 10 次请求限制 |
+| 路径无效 | 302 | 路径格式错误或包含危险字符 |
+| GitHub API 错误 | 302 | GitHub 请求失败或超时 |
+| 文件类型不支持 | 302 | 文件类型不在白名单中 |
+
 ---
 
 ## ⚙️ 配置参数
@@ -141,7 +164,7 @@ Access-Control-Allow-Origin: *
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
 | `MAX_REQUESTS_PER_SECOND` | 10 | 每秒最多允许的请求数 |
-| `windowMs` | 1000 | 时间窗口（毫秒） |
+| `RATE_LIMIT_WINDOW_MS` | 1000 | 时间窗口（毫秒） |
 | 超限处理 | 重定向 | 超限时重定向到安全页面 |
 
 ### 缓存策略
@@ -151,6 +174,13 @@ Access-Control-Allow-Origin: *
 | `CACHE_TTL` | 300 | 缓存存活时间（秒），5 分钟 |
 | `CACHE_MAX_SIZE` | 100 | 最多缓存文件数量 |
 | 淘汰策略 | LRU | 最近最少使用 |
+
+### GitHub API
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `GITHUB_BASE_URL` | `https://raw.githubusercontent.com` | GitHub 原始文件基础 URL |
+| `REQUEST_TIMEOUT` | 10000 | 请求超时时间（毫秒），10 秒 |
 
 ### 安全设置
 
@@ -172,6 +202,9 @@ Access-Control-Allow-Origin: *
 | 最大并发请求 | Vercel 自动扩缩容 |
 | 内存使用 | 优化的内存管理 |
 | 支持的文件类型 | 文本、图片、应用、音频、视频 |
+| 速度限制 | 10 请求/秒（滑动窗口） |
+| 缓存容量 | 100 个文件（LRU 淘汰） |
+| 缓存时长 | 5 分钟（300 秒） |
 
 ---
 
@@ -188,6 +221,22 @@ github-raw/
 ├── README.md                  # 项目文档（本文件）
 └── IFLOW.md                   # 详细技术文档
 ```
+
+## 🏗️ 技术架构
+
+### 技术栈
+
+- **运行时**：Node.js >= 24.0.0
+- **部署平台**：Vercel Serverless Functions
+- **编程语言**：JavaScript (ES2022+)
+- **架构模式**：单文件模块化设计
+
+### 核心技术
+
+- **WHATWG URL API**：现代标准，避免弃用警告
+- **ES 模块**：原生模块支持，无需打包
+- **Fetch API**：现代网络请求标准
+- **AbortSignal**：请求超时控制
 
 ---
 
@@ -233,7 +282,24 @@ class SimpleCache {
 }
 ```
 
-### 3. 安全验证
+### 3. 请求参数解析（parseRequestParams）
+
+使用 WHATWG URL API 解析请求参数，兼容 Vercel 的路由重写。
+
+```javascript
+function parseRequestParams(request) {
+  const requestUrl = new URL(request.url || '', `http://${request.headers.host}`);
+  const userToken = requestUrl.searchParams.get('nine-token');
+  const githubPath = requestUrl.searchParams.get('path');
+  
+  return {
+    userToken: userToken || request.query?.['nine-token'],
+    githubPath: githubPath || request.query?.path,
+  };
+}
+```
+
+### 4. 安全验证
 
 - **令牌验证**：严格匹配用户令牌
 - **路径验证**：防止目录遍历攻击
@@ -248,6 +314,7 @@ class SimpleCache {
 - ✅ **路径安全**：防止目录遍历攻击
 - ✅ **错误处理**：统一错误处理，不暴露敏感信息
 - ✅ **跨域控制**：完整的 CORS 配置
+- ✅ **现代标准**：使用 WHATWG URL API，避免弃用警告和安全隐患
 
 ---
 
@@ -274,13 +341,38 @@ vercel --prod
 在 Vercel 控制台的 `Settings > Environment Variables` 中添加：
 
 ```bash
-NINE49TOKEN=your_secure_token_here
-GITHUB49TOKEN=your_github_token_here  # 可选
+NINE49TOKEN=your_secure_token_here              # 必需：用户验证令牌
+GITHUB49TOKEN=your_github_token_here            # 可选：GitHub API 令牌
+NODE_NO_WARNINGS=1                              # 可选：抑制弃用警告
+```
+
+### Vercel 配置
+
+项目使用 `rewrites` 配置，将所有请求重定向到 `api/github-raw.js`：
+
+```json
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/github-raw.js?path=$1"
+    }
+  ]
+}
 ```
 
 ---
 
 ## 📝 更新日志
+
+### v2026.01.16.175755
+
+- 🎉 修复 Node.js 弃用警告（url.parse()）
+- ✨ 使用 WHATWG URL API 构建和解析请求 URL
+- 🚀 新增 parseRequestParams() 函数，统一参数解析
+- 🔧 优化 Vercel 配置（routes 改为 rewrites）
+- 💾 提取常量，添加 JSDoc 注释
+- ✅ 完整的功能测试和回归测试
 
 ### v2026.01.16.165956
 
@@ -348,6 +440,8 @@ GITHUB49TOKEN=your_github_token_here  # 可选
 
 - [Vercel](https://vercel.com) - 提供优秀的 Serverless 平台
 - [GitHub](https://github.com) - 提供原始文件托管服务
+- [Node.js](https://nodejs.org) - 提供 JavaScript 运行时
+- [WHATWG URL API](https://url.spec.whatwg.org/) - 提供现代 URL 处理标准
 
 ---
 

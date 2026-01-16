@@ -15,7 +15,7 @@
 
 ### 技术栈
 
-- **运行时**: Node.js 18+ (ES 模块)
+- **运行时**: Node.js >= 24.0.0 (ES 模块)
 - **部署平台**: Vercel Serverless Functions
 - **编程语言**: JavaScript (ES2022+)
 - **架构模式**: 单文件模块化设计
@@ -452,7 +452,16 @@ if (process.env.NODE_ENV === "development") {
 
 ## 🔄 版本历史
 
-### v2026.01.16.172754 (当前版本)
+### v2026.01.16.175755 (当前版本)
+
+- 🎉 修复 Node.js 弃用警告（url.parse()）
+- ✨ 使用 WHATWG URL API 构建和解析请求 URL
+- 🚀 新增 parseRequestParams() 函数，统一参数解析
+- 🔧 优化 Vercel 配置（routes 改为 rewrites）
+- 💾 提取常量 RATE_LIMIT_WINDOW_MS，添加 JSDoc 注释
+- ✅ 完整的功能测试和回归测试
+
+### v2026.01.16.172754
 
 - 🎉 全面优化代码结构，提升可读性和可维护性
 - ✨ 提取常量（DANGEROUS_PATH_PATTERNS、ALLOWED_FILE_TYPES）

@@ -42,10 +42,12 @@ const ALLOWED_FILE_TYPES = ["text", "image", "application", "audio", "video"];
 
 // ==================== 速度限制器 ====================
 
+const RATE_LIMIT_WINDOW_MS = 1000; // 1秒时间窗口
+
 class RateLimiter {
   constructor(maxRequests = MAX_REQUESTS_PER_SECOND) {
     this.maxRequests = maxRequests;
-    this.windowMs = 1000; // 1秒时间窗口
+    this.windowMs = RATE_LIMIT_WINDOW_MS;
     this.requests = [];
   }
 
@@ -148,6 +150,24 @@ const cache = new SimpleCache();
 
 // ==================== 工具函数 ====================
 
+/**
+ * 解析请求参数（兼容 WHATWG URL API 和 request.query）
+ * @param {Object} request - Vercel 请求对象
+ * @returns {Object} - 包含 userToken 和 githubPath 的对象
+ */
+function parseRequestParams(request) {
+  // 使用 WHATWG URL API 解析请求 URL（避免触发 url.parse() 弃用警告）
+  const requestUrl = new URL(request.url || '', `http://${request.headers.host}`);
+  const userToken = requestUrl.searchParams.get('nine-token');
+  const githubPath = requestUrl.searchParams.get('path');
+
+  // 兼容 request.query（Vercel 可能已经解析了）
+  return {
+    userToken: userToken || request.query?.['nine-token'],
+    githubPath: githubPath || request.query?.path,
+  };
+}
+
 function validateToken(userToken, expectedToken) {
   if (!userToken || !expectedToken) {
     return false;
@@ -188,9 +208,17 @@ function validateFileType(contentType) {
 
 // ==================== GitHub API 调用 ====================
 
+/**
+ * 从 GitHub 获取文件内容
+ * @param {string} path - 文件路径（格式：owner/repo/branch/path）
+ * @param {string} token - 可选的 GitHub 访问令牌
+ * @returns {Promise<Object>} - 返回包含内容、类型或错误信息的对象
+ */
 async function fetchFromGitHub(path, token) {
   try {
-    const url = `${GITHUB_BASE_URL}/${path}`;
+    // 使用 WHATWG URL API 构建请求 URL（符合现代标准）
+    const url = new URL(path, GITHUB_BASE_URL);
+    
     const headers = {
       "User-Agent": "GitHub-Raw-Proxy/1.0",
     };
@@ -260,11 +288,17 @@ function setCacheHeaders(response, cacheStatus, contentType) {
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
+/**
+ * 主处理函数
+ * @param {Object} request - Vercel 请求对象
+ * @param {Object} response - Vercel 响应对象
+ */
 export default async function handler(request, response) {
   const startTime = Date.now();
 
   try {
-    const { "nine-token": userToken, path: githubPath } = request.query;
+    // 解析请求参数
+    const { userToken, githubPath } = parseRequestParams(request);
 
     // 验证必需参数
     if (!userToken) {
