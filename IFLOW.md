@@ -2,7 +2,7 @@
 
 ## 📋 项目概述
 
-这是一个基于 Vercel 部署的高性能 GitHub 原始文件代理服务。项目采用极简的单文件架构，具备速度限制、智能缓存、安全验证等核心功能。
+这是一个基于 Vercel 部署的高性能 GitHub 原始文件代理服务。项目采用极简的单文件架构，具备速度限制、智能缓存、安全验证、健康检查等核心功能。
 
 ### 🎯 设计理念
 
@@ -10,6 +10,8 @@
 - **性能至上**: 缓存机制和速度限制确保服务稳定
 - **安全第一**: 多层验证防护，防止恶意访问
 - **易于维护**: 清晰的代码结构，便于理解和修改
+- **代码质量**: 集成 ESLint，自动检查代码质量
+- **小白友好**: 详细的中文注释，易于理解
 
 ## 🏗️ 技术架构
 
@@ -19,6 +21,7 @@
 - **部署平台**: Vercel Serverless Functions
 - **编程语言**: JavaScript (ES2022+)
 - **架构模式**: 单文件模块化设计
+- **代码质量**: ESLint v9.39.2
 
 ### 项目结构
 
@@ -26,12 +29,14 @@
 github-raw/
 ├── api/
 │   └── github-raw.js          # 🎯 主服务文件（单文件架构）
+├── eslint.config.js           # ESLint 配置文件
 ├── .gitignore                 # Git 忽略配置
 ├── .nvmrc                     # Node 版本配置
 ├── package.json               # 项目配置
 ├── vercel.json                # Vercel 部署配置
 ├── README.md                  # 用户文档
-└── IFLOW.md                   # 技术文档（本文件）
+├── IFLOW.md                   # 技术文档（本文件）
+└── orchestrator.md            # 开发指挥日志
 ```
 
 ## 🔧 核心功能
@@ -44,7 +49,7 @@ github-raw/
 class RateLimiter {
   constructor(maxRequests = MAX_REQUESTS_PER_SECOND) {
     this.maxRequests = maxRequests;
-    this.windowMs = 1000; // 1秒时间窗口
+    this.windowMs = RATE_LIMIT_WINDOW_MS; // 1秒时间窗口
     this.requests = [];
   }
 
@@ -57,6 +62,9 @@ class RateLimiter {
 
     // 检查是否超限
     if (this.requests.length >= this.maxRequests) {
+      if (DEBUG_MODE) {
+        console.warn(`⚠️ 速度限制触发：${this.requests.length}/${this.maxRequests} 请求/秒`);
+      }
       return false;
     }
 
@@ -80,8 +88,8 @@ class RateLimiter {
 ```javascript
 class SimpleCache {
   constructor() {
-    this.cache = new Map();
-    this.timers = new Map();
+    this.cache = new Map(); // 存储缓存数据
+    this.timers = new Map(); // 存储过期定时器
   }
 
   generateKey(path) {
@@ -89,19 +97,24 @@ class SimpleCache {
   }
 
   set(key, value, ttl = CACHE_TTL) {
-    // 清除旧定时器
+    // 清除旧定时器（如果存在）
     if (this.timers.has(key)) {
       clearTimeout(this.timers.get(key));
     }
 
-    // 存储缓存
+    // 存储缓存数据
     this.cache.set(key, {
-      value,
-      timestamp: Date.now(),
+      value, // 实际数据
+      timestamp: Date.now(), // 存入时间
     });
 
-    // 设置过期定时器
-    const timer = setTimeout(() => this.delete(key), ttl * 1000);
+    // 设置过期定时器（到达时间后自动删除）
+    const timer = setTimeout(() => {
+      if (DEBUG_MODE) {
+        console.info(`🗑️ 缓存过期: ${key}`);
+      }
+      this.delete(key);
+    }, ttl * 1000);
     this.timers.set(key, timer);
 
     // 检查缓存大小限制
@@ -113,6 +126,7 @@ class SimpleCache {
   get(key) {
     const item = this.cache.get(key);
 
+    // 缓存不存在
     if (!item) {
       return null;
     }
@@ -123,6 +137,7 @@ class SimpleCache {
       return null;
     }
 
+    // 返回缓存数据
     return item.value;
   }
 
@@ -138,6 +153,7 @@ class SimpleCache {
     let oldestKey = null;
     let oldestTime = Date.now();
 
+    // 遍历所有缓存，找到最早的那个
     for (const [key, item] of this.cache.entries()) {
       if (item.timestamp < oldestTime) {
         oldestTime = item.timestamp;
@@ -146,6 +162,9 @@ class SimpleCache {
     }
 
     if (oldestKey) {
+      if (DEBUG_MODE) {
+        console.warn(`⚠️ 缓存已满，淘汰最早项: ${oldestKey}`);
+      }
       this.delete(oldestKey);
     }
   }
@@ -159,7 +178,69 @@ class SimpleCache {
 - **淘汰策略**: LRU（最近最少使用）
 - **过期机制**: 自动过期清理
 
-### 3. 安全验证机制
+### 3. 健康检查端点
+
+#### 实现原理
+
+```javascript
+/**
+ * 处理健康检查请求
+ * @param {Object} response - Vercel 响应对象
+ * @returns {Object} - JSON 响应
+ */
+function handleHealthCheck(response) {
+  const uptime = process.uptime();
+  const uptimeFormatted = formatUptime(uptime);
+
+  const healthInfo = {
+    status: "ok",
+    uptime: uptimeFormatted,
+    timestamp: new Date().toISOString(),
+    version: "2026.01.21.140112",
+    cache: {
+      size: cache.cache.size,
+      maxSize: CACHE_MAX_SIZE,
+      usage: `${cache.cache.size}/${CACHE_MAX_SIZE}`,
+    },
+    rateLimit: {
+      maxRequests: MAX_REQUESTS_PER_SECOND,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    },
+    environment: process.env.NODE_ENV || "unknown",
+  };
+
+  response.setHeader("Content-Type", "application/json");
+  return response.status(200).json(healthInfo);
+}
+
+/**
+ * 格式化运行时间
+ * @param {number} seconds - 运行时间（秒）
+ * @returns {string} - 格式化后的时间字符串
+ */
+function formatUptime(seconds) {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  const parts = [];
+  if (days > 0) parts.push(`${days}天`);
+  if (hours > 0) parts.push(`${hours}小时`);
+  if (minutes > 0) parts.push(`${minutes}分钟`);
+  if (secs > 0 || parts.length === 0) parts.push(`${secs}秒`);
+
+  return parts.join(" ");
+}
+```
+
+#### 健康检查返回
+
+```json
+{"status": "ok", "uptime": "2天3小时45分钟", "timestamp": "2026-01-21T10:30:00.000Z", "version": "2026.01.21.140112", "cache": {"size": 15, "maxSize": 100, "usage": "15/100"}, "rateLimit": {"maxRequests": 10, "windowMs": 1000}, "environment": "production"}
+```
+
+### 4. 安全验证机制
 
 #### 输入验证
 
@@ -169,17 +250,25 @@ const pathPattern = /^[^\/]+\/[^\/]+\/[^\/]+\/.+$/;
 
 // 危险模式检测
 const DANGEROUS_PATH_PATTERNS = [
-  /\.\./, // 父目录符号
-  /\/\//, // 双斜杠
-  /^\//,  // 以斜杠开头
-  /\/$/,  // 以斜杠结尾
+  /\.\./, // 父目录符号（防止路径遍历攻击）
+  /\/\//, // 双斜杠（防止路径混乱）
+  /^\//,  // 以斜杠开头（防止绝对路径）
+  /\/$/,  // 以斜杠结尾（防止无效路径）
 ];
 
 function validatePath(path) {
-  if (!path || typeof path !== "string") return false;
-  if (path.length > MAX_PATH_LENGTH) return false;
-  if (!pathPattern.test(path)) return false;
+  // 检查基本类型和长度
+  if (!path || typeof path !== "string" || path.length > MAX_PATH_LENGTH) {
+    return false;
+  }
 
+  // 路径格式：owner/repo/branch/path
+  const pathPattern = /^[^\/]+\/[^\/]+\/[^\/]+\/.+$/;
+  if (!pathPattern.test(path)) {
+    return false;
+  }
+
+  // 检查危险模式
   return !DANGEROUS_PATH_PATTERNS.some((pattern) => pattern.test(path));
 }
 ```
@@ -190,6 +279,50 @@ function validatePath(path) {
 - **路径验证**: 防止目录遍历攻击
 - **文件类型**: 白名单机制控制
 - **错误处理**: 统一重定向，不暴露敏感信息
+
+### 5. 调试模式
+
+#### 实现原理
+
+```javascript
+// 调试开关：开发环境设为 true 可看到详细日志，生产环境设为 false
+const DEBUG_MODE = process.env.NODE_ENV === "development";
+
+/**
+ * 记录请求日志
+ * @param {string} level - 日志级别（info、warn、error）
+ * @param {string} message - 日志消息
+ * @param {Object} data - 附加数据
+ */
+function logRequest(level, message, data = {}) {
+  const timestamp = new Date().toISOString();
+  const logData = { timestamp, message, ...data };
+  
+  switch (level) {
+    case "info":
+      console.info(`✅ ${message}`, logData);
+      break;
+    case "warn":
+      console.warn(`⚠️ ${message}`, logData);
+      break;
+    case "error":
+      console.error(`❌ ${message}`, logData);
+      break;
+    default:
+      console.log(message, logData);
+  }
+}
+```
+
+#### 使用示例
+
+```javascript
+// 开发环境会显示详细日志
+if (DEBUG_MODE) {
+  console.error("   详细信息:", githubResult.details);
+  console.error("   错误堆栈:", error.stack);
+}
+```
 
 ## 🔄 工作流程
 
@@ -288,10 +421,10 @@ const REQUEST_TIMEOUT = 10000; // 10秒
 const REDIRECT_URL = "https://www.baidu.com";
 const MAX_PATH_LENGTH = 1000;
 const DANGEROUS_PATH_PATTERNS = [
-  /\.\./, // 父目录符号
-  /\/\//, // 双斜杠
-  /^\//,  // 以斜杠开头
-  /\/$/,  // 以斜杠结尾
+  /\.\./, // 父目录符号（防止路径遍历攻击）
+  /\/\//, // 双斜杠（防止路径混乱）
+  /^\//,  // 以斜杠开头（防止绝对路径）
+  /\/$/,  // 以斜杠结尾（防止无效路径）
 ];
 
 // 文件类型白名单
@@ -307,10 +440,10 @@ const ALLOWED_FILE_TYPES = ["text", "image", "application", "audio", "video"];
   "github": {
     "silent": true
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/api/github-raw.js?path=$1"
+      "source": "/(.*)",
+      "destination": "/api/github-raw.js?path=$1"
     }
   ]
 }
@@ -336,11 +469,20 @@ NODE_ENV=production
 git clone https://github.com/Nine499/github-raw.git
 cd github-raw
 
-# 安装 Vercel CLI
-npm i -g vercel
+# 安装依赖
+npm install
 
 # 设置环境变量
 echo "NINE49TOKEN=your_token" > .env.local
+
+# 运行代码检查
+npm run lint
+
+# 自动修复代码问题
+npm run lint:fix
+
+# 安装 Vercel CLI
+npm i -g vercel
 
 # 启动开发服务器
 vercel dev
@@ -353,11 +495,57 @@ vercel dev
 - **错误处理**: 统一的错误处理模式
 - **性能考虑**: 避免阻塞操作，优化内存使用
 
+### ESLint 配置
+
+项目使用 ESLint v9.39.2 进行代码质量检查：
+
+```javascript
+// eslint.config.js
+export default [
+  {
+    files: ["api/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: {
+        // Node.js 全局变量
+        console: "readonly",
+        process: "readonly",
+        Buffer: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        // Web API 全局变量（Node.js 18+ 支持）
+        URL: "readonly",
+        fetch: "readonly",
+        AbortSignal: "readonly",
+      },
+    },
+    rules: {
+      // 代码风格规则
+      "indent": ["error", 2], // 使用 2 空格缩进
+      "quotes": ["error", "double"], // 使用双引号
+      "semi": ["error", "always"], // 必须使用分号
+      "linebreak-style": ["error", "unix"], // 使用 Unix 换行符
+
+      // 错误检测规则
+      "no-unused-vars": "warn", // 未使用的变量警告（不报错）
+      "no-undef": "error", // 未定义的变量报错
+      "no-console": "off", // 允许使用 console（方便调试）
+
+      // 最佳实践
+      "no-var": "error", // 禁止使用 var，使用 let/const
+      "prefer-const": "warn", // 建议使用 const
+      "eqeqeq": ["error", "always"], // 必须使用 === 或 !==
+    },
+  },
+];
+```
+
 ### 调试技巧
 
 ```javascript
 // 开发环境日志
-if (process.env.NODE_ENV === "development") {
+if (DEBUG_MODE) {
   console.info("调试信息", {
     path: sanitizedPath,
     cacheSize: cache.cache.size,
@@ -403,12 +591,19 @@ if (process.env.NODE_ENV === "development") {
 **原因**: 缓存未生效
 **解决**: 检查缓存配置和内存使用
 
+#### 4. ESLint 检查失败
+
+**症状**: `npm run lint` 报错
+**原因**: 代码不符合规范
+**解决**: 运行 `npm run lint:fix` 自动修复
+
 ### 调试工具
 
 - **Vercel 日志**: 实时查看函数执行日志
 - **本地开发**: 使用 `vercel dev` 本地调试
 - **网络工具**: curl、Postman 测试 API
 - **浏览器工具**: 开发者网络面板
+- **ESLint**: 代码质量检查
 
 ## 🧪 测试策略
 
@@ -419,6 +614,8 @@ if (process.env.NODE_ENV === "development") {
 - ✅ 速度限制测试
 - ✅ 缓存机制测试
 - ✅ 错误处理测试
+- ✅ 健康检查测试
+- ✅ 调试模式测试
 
 ### 性能测试
 
@@ -452,7 +649,18 @@ if (process.env.NODE_ENV === "development") {
 
 ## 🔄 版本历史
 
-### v2026.01.16.175755 (当前版本)
+### v2026.01.16.175756 (最新优化)
+
+- ✨ 新增健康检查端点 `/health`，实时查看服务状态
+- 🎯 新增调试模式 `DEBUG_MODE`，开发环境详细日志
+- 🛠️ 集成 ESLint 代码检查，自动发现代码问题
+- 🔧 优化代码结构，提取独立函数，减少嵌套
+- 📝 优化注释，更详细的中文说明，小白友好
+- ⚡ 优化错误处理，更友好的错误提示
+- 🎨 统一日志输出格式，提升可读性
+- ✅ 全面测试通过，代码质量显著提升
+
+### v2026.01.16.175755
 
 - 🎉 修复 Node.js 弃用警告（url.parse()）
 - ✨ 使用 WHATWG URL API 构建和解析请求 URL

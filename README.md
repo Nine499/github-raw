@@ -2,7 +2,7 @@
 
 > 🚀 一个简单、高效、安全的 GitHub 原始文件代理服务，专为加速访问而设计
 
-[![Version](https://img.shields.io/badge/version-2026.01.16.175755-blue)](https://github.com/Nine499/github-raw/releases)
+[![Version](https://img.shields.io/badge/version-2026.01.21.140112-blue)](https://github.com/Nine499/github-raw/releases)
 [![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-green)](https://nodejs.org)
 [![License](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Nine499/github-raw)
@@ -18,6 +18,9 @@
 ✅ **极简架构** - 单文件实现，代码清晰易懂，易于维护  
 ✅ **自动扩缩容** - 基于 Vercel Serverless，自动处理并发  
 ✅ **现代标准** - 使用 WHATWG URL API，避免弃用警告  
+✅ **健康检查** - `/health` 端点实时查看服务状态  
+✅ **代码质量** - 集成 ESLint，自动检查代码质量  
+✅ **调试模式** - 开发环境详细日志，方便调试  
 
 ---
 
@@ -36,6 +39,7 @@
 ```bash
 NINE49TOKEN=your_user_token_here        # 用户验证令牌（必需）
 GITHUB49TOKEN=your_github_token_here    # GitHub API 令牌（可选，用于提高访问速度）
+NODE_ENV=production                     # 运行环境（可选）
 ```
 
 ### 3. 开始使用
@@ -57,6 +61,20 @@ curl "https://your-domain.com/Nine499/github-raw/master/README.md?nine-token=YOU
 
 # 在 JavaScript 中加载脚本
 <script src="https://your-domain.com/owner/repo/main/script.js?nine-token=YOUR_TOKEN"></script>
+```
+
+### 4. 健康检查
+
+访问健康检查端点查看服务状态：
+
+```bash
+curl https://your-domain.com/health
+```
+
+**返回示例：**
+
+```json
+{"status": "ok", "uptime": "2天3小时45分钟", "timestamp": "2026-01-21T10:30:00.000Z", "version": "2026.01.21.140112", "cache": {"size": 15, "maxSize": 100, "usage": "15/100"}, "rateLimit": {"maxRequests": 10, "windowMs": 1000}, "environment": "production"}
 ```
 
 ---
@@ -82,10 +100,13 @@ npm install
 # 3. 设置环境变量
 echo "NINE49TOKEN=your_token" > .env.local
 
-# 4. 安装 Vercel CLI（如果未安装）
+# 4. 运行代码检查（可选）
+npm run lint
+
+# 5. 安装 Vercel CLI（如果未安装）
 npm i -g vercel
 
-# 5. 启动开发服务器
+# 6. 启动开发服务器
 vercel dev
 ```
 
@@ -99,6 +120,19 @@ curl "http://localhost:3000/Nine499/github-raw/master/README.md?nine-token=YOUR_
 
 # 测试缓存（第二次请求应该更快）
 curl "http://localhost:3000/Nine499/github-raw/master/README.md?nine-token=YOUR_TOKEN"
+
+# 测试健康检查
+curl http://localhost:3000/health
+```
+
+### 代码检查
+
+```bash
+# 检查代码质量
+npm run lint
+
+# 自动修复代码问题
+npm run lint:fix
 ```
 
 ---
@@ -125,6 +159,33 @@ GET /owner/repo/branch/path/to/file?nine-token=YOUR_TOKEN
 | 参数 | 必需 | 说明 |
 |------|------|------|
 | `nine-token` | 是 | 访问令牌，需要在环境变量中配置 |
+
+### 健康检查端点
+
+```
+GET /health
+```
+
+**返回示例：**
+
+```json
+{
+  "status": "ok",
+  "uptime": "2天3小时45分钟",
+  "timestamp": "2026-01-21T10:30:00.000Z",
+  "version": "2026.01.16.175755",
+  "cache": {
+    "size": 15,
+    "maxSize": 100,
+    "usage": "15/100"
+  },
+  "rateLimit": {
+    "maxRequests": 10,
+    "windowMs": 1000
+  },
+  "environment": "production"
+}
+```
 
 ### 响应
 
@@ -191,6 +252,13 @@ Access-Control-Allow-Origin: *
 | 文件类型 | 支持 text、image、application、audio、video |
 | 路径长度限制 | 最大 1000 字符 |
 
+### 调试模式
+
+| 配置项 | 说明 |
+|--------|------|
+| `DEBUG_MODE` | 开发环境自动启用详细日志 |
+| 环境变量 | `NODE_ENV=development` |
+
 ---
 
 ## 📊 性能指标
@@ -214,12 +282,15 @@ Access-Control-Allow-Origin: *
 github-raw/
 ├── api/
 │   └── github-raw.js          # 主服务文件（单文件架构）
+├── eslint.config.js           # ESLint 配置文件
 ├── .gitignore                 # Git 忽略配置
 ├── .nvmrc                     # Node 版本配置
 ├── package.json               # 项目配置
+├── package-lock.json          # 依赖锁定文件
 ├── vercel.json                # Vercel 部署配置
 ├── README.md                  # 项目文档（本文件）
-└── IFLOW.md                   # 详细技术文档
+├── IFLOW.md                   # 详细技术文档
+└── orchestrator.md            # 开发指挥日志
 ```
 
 ## 🏗️ 技术架构
@@ -230,6 +301,7 @@ github-raw/
 - **部署平台**：Vercel Serverless Functions
 - **编程语言**：JavaScript (ES2022+)
 - **架构模式**：单文件模块化设计
+- **代码质量**：ESLint v9.39.2
 
 ### 核心技术
 
@@ -237,6 +309,7 @@ github-raw/
 - **ES 模块**：原生模块支持，无需打包
 - **Fetch API**：现代网络请求标准
 - **AbortSignal**：请求超时控制
+- **ESLint**：代码质量检查
 
 ---
 
@@ -282,7 +355,27 @@ class SimpleCache {
 }
 ```
 
-### 3. 请求参数解析（parseRequestParams）
+### 3. 健康检查（Health Check）
+
+实时返回服务状态信息，包括运行时间、缓存使用率、速度限制配置等。
+
+```javascript
+function handleHealthCheck(response) {
+  const uptime = process.uptime();
+  const healthInfo = {
+    status: "ok",
+    uptime: formatUptime(uptime),
+    timestamp: new Date().toISOString(),
+    version: "2026.01.16.175755",
+    cache: { size, maxSize, usage },
+    rateLimit: { maxRequests, windowMs },
+    environment: process.env.NODE_ENV || "unknown",
+  };
+  return response.status(200).json(healthInfo);
+}
+```
+
+### 4. 请求参数解析（parseRequestParams）
 
 使用 WHATWG URL API 解析请求参数，兼容 Vercel 的路由重写。
 
@@ -299,7 +392,7 @@ function parseRequestParams(request) {
 }
 ```
 
-### 4. 安全验证
+### 5. 安全验证
 
 - **令牌验证**：严格匹配用户令牌
 - **路径验证**：防止目录遍历攻击
@@ -315,6 +408,8 @@ function parseRequestParams(request) {
 - ✅ **错误处理**：统一错误处理，不暴露敏感信息
 - ✅ **跨域控制**：完整的 CORS 配置
 - ✅ **现代标准**：使用 WHATWG URL API，避免弃用警告和安全隐患
+- ✅ **速度限制**：防止恶意刷接口
+- ✅ **代码质量**：ESLint 自动检查代码问题
 
 ---
 
@@ -343,7 +438,7 @@ vercel --prod
 ```bash
 NINE49TOKEN=your_secure_token_here              # 必需：用户验证令牌
 GITHUB49TOKEN=your_github_token_here            # 可选：GitHub API 令牌
-NODE_NO_WARNINGS=1                              # 可选：抑制弃用警告
+NODE_ENV=production                             # 可选：运行环境
 ```
 
 ### Vercel 配置
@@ -352,6 +447,9 @@ NODE_NO_WARNINGS=1                              # 可选：抑制弃用警告
 
 ```json
 {
+  "github": {
+    "silent": true
+  },
   "rewrites": [
     {
       "source": "/(.*)",
@@ -373,6 +471,17 @@ NODE_NO_WARNINGS=1                              # 可选：抑制弃用警告
 - 🔧 优化 Vercel 配置（routes 改为 rewrites）
 - 💾 提取常量，添加 JSDoc 注释
 - ✅ 完整的功能测试和回归测试
+
+### v2026.01.16.175756 (最新优化)
+
+- ✨ 新增健康检查端点 `/health`，实时查看服务状态
+- 🎯 新增调试模式 `DEBUG_MODE`，开发环境详细日志
+- 🛠️ 集成 ESLint 代码检查，自动发现代码问题
+- 🔧 优化代码结构，提取独立函数，减少嵌套
+- 📝 优化注释，更详细的中文说明，小白友好
+- ⚡ 优化错误处理，更友好的错误提示
+- 🎨 统一日志输出格式，提升可读性
+- ✅ 全面测试通过，代码质量显著提升
 
 ### v2026.01.16.165956
 
@@ -419,6 +528,16 @@ NODE_NO_WARNINGS=1                              # 可选：抑制弃用警告
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
+**代码规范：**
+
+```bash
+# 在提交前运行代码检查
+npm run lint
+
+# 自动修复代码问题
+npm run lint:fix
+```
+
 ---
 
 ## 📄 许可证
@@ -433,6 +552,7 @@ NODE_NO_WARNINGS=1                              # 可选：抑制弃用警告
 
 - 📧 创建 [Issue](https://github.com/Nine499/github-raw/issues)
 - 💬 参与 [Discussions](https://github.com/Nine499/github-raw/discussions)
+- 📖 查看 [IFLOW.md](IFLOW.md) 了解详细技术文档
 
 ---
 
@@ -442,6 +562,7 @@ NODE_NO_WARNINGS=1                              # 可选：抑制弃用警告
 - [GitHub](https://github.com) - 提供原始文件托管服务
 - [Node.js](https://nodejs.org) - 提供 JavaScript 运行时
 - [WHATWG URL API](https://url.spec.whatwg.org/) - 提供现代 URL 处理标准
+- [ESLint](https://eslint.org) - 提供代码质量检查工具
 
 ---
 
