@@ -1,183 +1,155 @@
 # GitHub Raw 代理服务
 
-> 🚀 一个简单、高效、安全的 GitHub 原始文件代理服务，专为加速访问而设计
+![Version](https://img.shields.io/badge/version-2026.01.21-blue)
+![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-green)
+![License](https://img.shields.io/badge/license-MIT-yellow)
+![Vercel](https://img.shields.io/badge/deploy%20with-vercel-000000.svg)
 
-[![Version](https://img.shields.io/badge/version-2026.01.21.140112-blue)](https://github.com/Nine499/github-raw/releases)
-[![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-green)](https://nodejs.org)
-[![License](https://img.shields.io/badge/license-MIT-yellow)](LICENSE)
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Nine499/github-raw)
+## 简单、快速、安全的 GitHub 文件代理服务
+
+这是一个基于 Vercel 的 GitHub 文件代理服务，专门为新手设计，代码结构清晰、注释详细。
+
+**它能做什么？**
+
+想象一下，你在中国访问 GitHub 上的文件，速度可能很慢。这个服务就像一个"快递中转站"：
+
+1. 你向代理服务请求文件
+2. 代理服务从 GitHub 下载文件
+3. 代理服务将文件缓存起来（5分钟内重复访问直接返回）
+4. 代理服务把文件给你
+
+**核心优势：**
+
+- 🚀 **智能缓存** - 5分钟内重复访问秒速响应
+- 🔒 **安全可靠** - 令牌验证 + 速度限制 + 路径安全检查
+- 📝 **新手友好** - 超详细注释，易于理解和修改
+- 💰 **零成本** - 部署在 Vercel 免费额度内
+- 🎯 **简单易用** - 一个 URL 参数即可访问
 
 ---
 
 ## ✨ 功能特性
 
-✅ **速度限制** - 每秒最多 10 次请求，防止服务器过载  
-✅ **智能缓存** - 5 分钟内存缓存，缓存命中响应时间 < 50ms  
-✅ **安全验证** - 令牌验证 + 路径安全检查，防止恶意访问  
-✅ **跨域支持** - 完整的 CORS 配置，支持跨域访问  
-✅ **极简架构** - 单文件实现，代码清晰易懂，易于维护  
-✅ **自动扩缩容** - 基于 Vercel Serverless，自动处理并发  
-✅ **现代标准** - 使用 WHATWG URL API，避免弃用警告  
-✅ **健康检查** - `/health` 端点实时查看服务状态  
-✅ **代码质量** - 集成 ESLint，自动检查代码质量  
-✅ **调试模式** - 开发环境详细日志，方便调试  
+### 🔐 令牌验证
+
+- 只有持有正确令牌的用户才能使用服务
+- 防止服务被滥用
+
+### ⚡ 速度限制
+
+- 每秒最多 10 次请求
+- 防止恶意高频请求
+
+### 💾 智能缓存
+
+- 自动缓存已下载的文件
+- 5分钟后自动过期
+- 最多缓存 100 个文件
+- LRU 淘汰策略（缓存满时删除最早的数据）
+
+### 🛡️ 安全验证
+
+- 路径格式验证（防止目录遍历攻击）
+- 文件类型白名单（只允许安全类型）
+- 超时保护（10秒自动超时）
+
+### 📊 健康检查
+
+- 访问 `/health` 查看服务状态
+- 显示运行时间、缓存使用率、限流配置
 
 ---
 
-## 📦 快速开始
+## 🚀 快速开始
 
-### 1. 一键部署到 Vercel
-
-点击下方按钮，一键部署到 Vercel：
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Nine499/github-raw)
-
-### 2. 配置环境变量
-
-在 Vercel 控制台设置以下环境变量：
-
-```bash
-NINE49TOKEN=your_user_token_here        # 用户验证令牌（必需）
-GITHUB49TOKEN=your_github_token_here    # GitHub API 令牌（可选，用于提高访问速度）
-NODE_ENV=production                     # 运行环境（可选）
-```
-
-### 3. 开始使用
-
-部署完成后，即可通过以下格式访问文件：
-
-```bash
-https://your-domain.com/owner/repo/branch/path/to/file?nine-token=YOUR_TOKEN
-```
-
-**示例：**
-
-```bash
-# 获取 README 文件
-curl "https://your-domain.com/Nine499/github-raw/master/README.md?nine-token=YOUR_TOKEN"
-
-# 在 HTML 中引用图片
-<img src="https://your-domain.com/owner/repo/main/images/logo.png?nine-token=YOUR_TOKEN">
-
-# 在 JavaScript 中加载脚本
-<script src="https://your-domain.com/owner/repo/main/script.js?nine-token=YOUR_TOKEN"></script>
-```
-
-### 4. 健康检查
-
-访问健康检查端点查看服务状态：
-
-```bash
-curl https://your-domain.com/health
-```
-
-**返回示例：**
-
-```json
-{"status": "ok", "uptime": "2天3小时45分钟", "timestamp": "2026-01-21T10:30:00.000Z", "version": "2026.01.21.140112", "cache": {"size": 15, "maxSize": 100, "usage": "15/100"}, "rateLimit": {"maxRequests": 10, "windowMs": 1000}, "environment": "production"}
-```
-
----
-
-## 🛠️ 本地开发
-
-### 环境要求
+### 前置要求
 
 - Node.js >= 24.0.0
 - npm 或 yarn
-- Vercel CLI（可选，用于本地开发）
+- Vercel 账号（免费）
 
-### 安装步骤
+### 1. 克隆项目
 
 ```bash
-# 1. 克隆项目
 git clone https://github.com/Nine499/github-raw.git
 cd github-raw
+```
 
-# 2. 安装依赖
+### 2. 安装依赖
+
+```bash
 npm install
-
-# 3. 设置环境变量
-echo "NINE49TOKEN=your_token" > .env.local
-
-# 4. 运行代码检查（可选）
-npm run lint
-
-# 5. 安装 Vercel CLI（如果未安装）
-npm i -g vercel
-
-# 6. 启动开发服务器
-vercel dev
 ```
 
-开发服务器将在 `http://localhost:3000` 启动。
+### 3. 配置环境变量
 
-### 测试示例
+创建 `.env` 文件（参考 `.env.example`）：
 
 ```bash
-# 测试基本功能
-curl "http://localhost:3000/Nine499/github-raw/master/README.md?nine-token=YOUR_TOKEN"
+# 访问令牌（必需）- 你自己设置的密码
+NINE49TOKEN=your-secret-token-here
 
-# 测试缓存（第二次请求应该更快）
-curl "http://localhost:3000/Nine499/github-raw/master/README.md?nine-token=YOUR_TOKEN"
+# GitHub API 令牌（可选）- 用于提高 GitHub API 请求限制
+GITHUB49TOKEN=your-github-token-here
 
-# 测试健康检查
-curl http://localhost:3000/health
+# 运行环境
+NODE_ENV=development
 ```
 
-### 代码检查
+### 4. 本地开发
 
 ```bash
-# 检查代码质量
-npm run lint
-
-# 自动修复代码问题
-npm run lint:fix
+npm run dev
 ```
+
+服务将在 `http://localhost:3000` 启动。
 
 ---
 
-## 📖 API 文档
+## 📚 使用示例
 
-### 请求格式
+### 基本用法
 
-```
-GET /owner/repo/branch/path/to/file?nine-token=YOUR_TOKEN
-```
-
-### 路径参数
-
-| 参数 | 说明 | 示例 |
-|------|------|------|
-| `owner` | GitHub 仓库所有者 | `Nine499` |
-| `repo` | 仓库名称 | `github-raw` |
-| `branch` | 分支名称 | `master`、`main`、`develop` |
-| `path/to/file` | 文件路径 | `README.md`、`src/index.js`、`images/logo.png` |
-
-### 查询参数
-
-| 参数 | 必需 | 说明 |
-|------|------|------|
-| `nine-token` | 是 | 访问令牌，需要在环境变量中配置 |
-
-### 健康检查端点
-
-```
-GET /health
+```text
+https://你的域名/owner/repo/branch/path?nine-token=你的令牌
 ```
 
-**返回示例：**
+### 示例 1：获取 README 文件
+
+```text
+https://your-domain.vercel.app/Nine499/github-raw/master/README.md?nine-token=abc123
+```
+
+### 示例 2：获取图片文件
+
+```text
+https://your-domain.vercel.app/vuejs/vue/master/logo.png?nine-token=abc123
+```
+
+### 示例 3：获取代码文件
+
+```text
+https://your-domain.vercel.app/facebook/react/main/package.json?nine-token=abc123
+```
+
+### 健康检查
+
+```text
+https://your-domain.vercel.app/health
+```
+
+返回示例：
 
 ```json
 {
   "status": "ok",
-  "uptime": "2天3小时45分钟",
-  "timestamp": "2026-01-21T10:30:00.000Z",
-  "version": "2026.01.16.175755",
+  "uptime": "2天 5小时 30分钟 15秒",
+  "timestamp": "2026-01-23T10:30:00.000Z",
+  "version": "2026.01.21.140112",
   "cache": {
-    "size": 15,
+    "size": 45,
     "maxSize": 100,
-    "usage": "15/100"
+    "usage": "45/100"
   },
   "rateLimit": {
     "maxRequests": 10,
@@ -187,340 +159,154 @@ GET /health
 }
 ```
 
-### 响应
+---
 
-**成功（200）：**
+## 🌐 部署指南
 
-```http
-HTTP/1.1 200 OK
-Content-Type: text/plain
-X-Cache: HIT
-Cache-Control: public, max-age=300
-Access-Control-Allow-Origin: *
+### 方式一：Vercel CLI（推荐）
 
-[文件内容]
+```bash
+# 安装 Vercel CLI
+npm i -g vercel
+
+# 登录
+vercel login
+
+# 部署
+vercel
+
+# 部署到生产环境
+vercel --prod
 ```
 
-**失败（302 重定向）：**
+### 方式二：Vercel 网页版
 
-验证失败时，将重定向到安全页面（默认：百度）。
+1. 访问 [vercel.com](https://vercel.com)
+2. 点击 "New Project"
+3. 导入你的 GitHub 仓库
+4. 配置环境变量：
+   - `NINE49TOKEN`: 你的访问令牌
+   - `GITHUB49TOKEN`: GitHub API 令牌（可选）
+5. 点击 "Deploy"
 
-### 错误处理
+### 配置自定义域名
 
-| 错误原因 | HTTP 状态码 | 说明 |
-|----------|-------------|------|
-| 缺少令牌 | 302 | 未提供 `nine-token` 参数 |
-| 令牌无效 | 302 | 令牌与环境变量不匹配 |
-| 请求频率超限 | 302 | 超过每秒 10 次请求限制 |
-| 路径无效 | 302 | 路径格式错误或包含危险字符 |
-| GitHub API 错误 | 302 | GitHub 请求失败或超时 |
-| 文件类型不支持 | 302 | 文件类型不在白名单中 |
-
----
-
-## ⚙️ 配置参数
-
-### 速度限制
-
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| `MAX_REQUESTS_PER_SECOND` | 10 | 每秒最多允许的请求数 |
-| `RATE_LIMIT_WINDOW_MS` | 1000 | 时间窗口（毫秒） |
-| 超限处理 | 重定向 | 超限时重定向到安全页面 |
-
-### 缓存策略
-
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| `CACHE_TTL` | 300 | 缓存存活时间（秒），5 分钟 |
-| `CACHE_MAX_SIZE` | 100 | 最多缓存文件数量 |
-| 淘汰策略 | LRU | 最近最少使用 |
-
-### GitHub API
-
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| `GITHUB_BASE_URL` | `https://raw.githubusercontent.com` | GitHub 原始文件基础 URL |
-| `REQUEST_TIMEOUT` | 10000 | 请求超时时间（毫秒），10 秒 |
-
-### 安全设置
-
-| 配置项 | 说明 |
-|--------|------|
-| 令牌验证 | 严格匹配用户令牌 |
-| 路径验证 | 防止目录遍历攻击（`../`、双斜杠等） |
-| 文件类型 | 支持 text、image、application、audio、video |
-| 路径长度限制 | 最大 1000 字符 |
-
-### 调试模式
-
-| 配置项 | 说明 |
-|--------|------|
-| `DEBUG_MODE` | 开发环境自动启用详细日志 |
-| 环境变量 | `NODE_ENV=development` |
+1. 在 Vercel 项目设置中添加域名
+2. 按照提示配置 DNS
+3. 等待 SSL 证书自动生成
 
 ---
 
-## 📊 性能指标
+## ⚙️ 环境变量
 
-| 指标 | 数值 |
-|------|------|
-| 缓存命中响应时间 | < 50ms |
-| 缓存未命中响应时间 | < 1000ms |
-| 最大并发请求 | Vercel 自动扩缩容 |
-| 内存使用 | 优化的内存管理 |
-| 支持的文件类型 | 文本、图片、应用、音频、视频 |
-| 速度限制 | 10 请求/秒（滑动窗口） |
-| 缓存容量 | 100 个文件（LRU 淘汰） |
-| 缓存时长 | 5 分钟（300 秒） |
+| 变量名          | 必需 | 说明                          | 示例                          |
+| --------------- | ---- | ----------------------------- | ----------------------------- |
+| `NINE49TOKEN`   | ✅   | 访问令牌，用于验证用户身份    | `my-secret-token-123`         |
+| `GITHUB49TOKEN` | ❌   | GitHub API 令牌，提高请求限制 | `ghp_xxxxxxxxxxxx`            |
+| `NODE_ENV`      | ❌   | 运行环境                      | `development` 或 `production` |
+
+### 如何获取 GitHub Token？
+
+1. 访问 [GitHub Settings → Tokens](https://github.com/settings/tokens)
+2. 点击 "Generate new token (classic)"
+3. 选择 `public_repo` 权限
+4. 复制生成的 token
 
 ---
 
-## 📂 项目结构
+## 🛠️ 开发命令
+
+```bash
+# 本地开发
+npm run dev
+
+# 代码检查
+npm run lint
+
+# 自动修复代码问题
+npm run lint:fix
+
+# 部署到生产环境
+npm run deploy
+
+# 查看日志
+npm run logs
+```
+
+---
+
+## 📁 项目结构
 
 ```text
 github-raw/
 ├── api/
-│   └── github-raw.js          # 主服务文件（单文件架构）
-├── eslint.config.js           # ESLint 配置文件
-├── .gitignore                 # Git 忽略配置
-├── .nvmrc                     # Node 版本配置
-├── package.json               # 项目配置
-├── package-lock.json          # 依赖锁定文件
-├── vercel.json                # Vercel 部署配置
-├── README.md                  # 项目文档（本文件）
-├── IFLOW.md                   # 详细技术文档
-└── orchestrator.md            # 开发指挥日志
+│   └── github-raw.js      # 主程序文件（约 480 行）
+├── .env.example           # 环境变量示例
+├── .gitignore             # Git 忽略文件
+├── eslint.config.js       # ESLint 配置
+├── package.json           # 项目配置
+├── vercel.json            # Vercel 部署配置
+├── AGENTS.md              # Agent 开发指南
+└── README.md              # 项目说明文档
 ```
 
-## 🏗️ 技术架构
+### 代码结构（7 个部分）
 
-### 技术栈
-
-- **运行时**：Node.js >= 24.0.0
-- **部署平台**：Vercel Serverless Functions
-- **编程语言**：JavaScript (ES2022+)
-- **架构模式**：单文件模块化设计
-- **代码质量**：ESLint v9.39.2
-
-### 核心技术
-
-- **WHATWG URL API**：现代标准，避免弃用警告
-- **ES 模块**：原生模块支持，无需打包
-- **Fetch API**：现代网络请求标准
-- **AbortSignal**：请求超时控制
-- **ESLint**：代码质量检查
+1. **基础配置** - 所有常量和配置项
+2. **工具函数** - 纯函数，无副作用
+3. **核心类** - SimpleCache 和 RateLimiter
+4. **GitHub API 调用** - fetchFromGitHub 函数
+5. **响应处理** - 辅助函数
+6. **主处理函数** - handler 函数（入口）
+7. **导出** - 测试用的导出
 
 ---
 
-## 🔧 核心组件
+## ❓ 常见问题
 
-### 1. 速度限制器（RateLimiter）
+### Q: 为什么需要令牌？
 
-使用滑动窗口算法控制请求频率，防止恶意刷接口。
+A: 防止服务被滥用。你可以设置自己的令牌，只让知道令牌的人使用。
 
-```javascript
-class RateLimiter {
-  constructor(maxRequests = 10) {
-    this.maxRequests = maxRequests;
-    this.windowMs = 1000; // 1秒时间窗口
-    this.requests = [];
-  }
-  
-  isAllowed() {
-    // 清理过期请求，检查是否超限
-    // 返回 true/false
-  }
-}
-```
+### Q: 缓存会占用多少内存？
 
-### 2. 缓存系统（SimpleCache）
+A: 最多缓存 100 个文件，每个文件 5 分钟后自动过期。内存占用通常在 10-50MB 之间。
 
-基于 Map 的内存缓存，支持自动过期和 LRU 淘汰。
+### Q: 支持哪些文件类型？
 
-```javascript
-class SimpleCache {
-  constructor() {
-    this.cache = new Map();
-    this.timers = new Map();
-  }
-  
-  set(key, value, ttl) {
-    // 存储数据，设置过期定时器
-  }
-  
-  get(key) {
-    // 获取数据，检查是否过期
-  }
-}
-```
+A: 支持所有常见类型：文本、图片、音频、视频、应用程序文件等。
 
-### 3. 健康检查（Health Check）
+### Q: 部署后访问很慢怎么办？
 
-实时返回服务状态信息，包括运行时间、缓存使用率、速度限制配置等。
+A: 检查以下几点：
 
-```javascript
-function handleHealthCheck(response) {
-  const uptime = process.uptime();
-  const healthInfo = {
-    status: "ok",
-    uptime: formatUptime(uptime),
-    timestamp: new Date().toISOString(),
-    version: "2026.01.16.175755",
-    cache: { size, maxSize, usage },
-    rateLimit: { maxRequests, windowMs },
-    environment: process.env.NODE_ENV || "unknown",
-  };
-  return response.status(200).json(healthInfo);
-}
-```
+1. 是否配置了 GitHub Token（可以提高 API 请求限制）
+2. 请求是否命中缓存（查看响应头 `X-Cache`）
+3. Vercel 地理位置是否合适
 
-### 4. 请求参数解析（parseRequestParams）
+### Q: 可以修改缓存时间吗？
 
-使用 WHATWG URL API 解析请求参数，兼容 Vercel 的路由重写。
+A: 可以。修改 `api/github-raw.js` 中的 `CACHE_TTL` 常量（单位：秒）。
 
-```javascript
-function parseRequestParams(request) {
-  const requestUrl = new URL(request.url || '', `http://${request.headers.host}`);
-  const userToken = requestUrl.searchParams.get('nine-token');
-  const githubPath = requestUrl.searchParams.get('path');
-  
-  return {
-    userToken: userToken || request.query?.['nine-token'],
-    githubPath: githubPath || request.query?.path,
-  };
-}
-```
+### Q: 如何提高限流阈值？
 
-### 5. 安全验证
-
-- **令牌验证**：严格匹配用户令牌
-- **路径验证**：防止目录遍历攻击
-- **文件类型验证**：白名单机制
+A: 修改 `api/github-raw.js` 中的 `MAX_REQUESTS_PER_SECOND` 常量。
 
 ---
 
-## 🛡️ 安全特性
+## 🔒 安全建议
 
-- ✅ **输入验证**：严格的参数和路径验证
-- ✅ **令牌保护**：防止未授权访问
-- ✅ **路径安全**：防止目录遍历攻击
-- ✅ **错误处理**：统一错误处理，不暴露敏感信息
-- ✅ **跨域控制**：完整的 CORS 配置
-- ✅ **现代标准**：使用 WHATWG URL API，避免弃用警告和安全隐患
-- ✅ **速度限制**：防止恶意刷接口
-- ✅ **代码质量**：ESLint 自动检查代码问题
-
----
-
-## 🚀 部署指南
-
-### Vercel 部署
-
-```bash
-# 1. 安装 Vercel CLI
-npm i -g vercel
-
-# 2. 登录 Vercel
-vercel login
-
-# 3. 部署
-vercel
-
-# 4. 生产环境部署
-vercel --prod
-```
-
-### 环境变量配置
-
-在 Vercel 控制台的 `Settings > Environment Variables` 中添加：
-
-```bash
-NINE49TOKEN=your_secure_token_here              # 必需：用户验证令牌
-GITHUB49TOKEN=your_github_token_here            # 可选：GitHub API 令牌
-NODE_ENV=production                             # 可选：运行环境
-```
-
-### Vercel 配置
-
-项目使用 `rewrites` 配置，将所有请求重定向到 `api/github-raw.js`：
-
-```json
-{
-  "github": {
-    "silent": true
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/github-raw.js?path=$1"
-    }
-  ]
-}
-```
-
----
-
-## 📝 更新日志
-
-### v2026.01.16.175755
-
-- 🎉 修复 Node.js 弃用警告（url.parse()）
-- ✨ 使用 WHATWG URL API 构建和解析请求 URL
-- 🚀 新增 parseRequestParams() 函数，统一参数解析
-- 🔧 优化 Vercel 配置（routes 改为 rewrites）
-- 💾 提取常量，添加 JSDoc 注释
-- ✅ 完整的功能测试和回归测试
-
-### v2026.01.16.175756 (最新优化)
-
-- ✨ 新增健康检查端点 `/health`，实时查看服务状态
-- 🎯 新增调试模式 `DEBUG_MODE`，开发环境详细日志
-- 🛠️ 集成 ESLint 代码检查，自动发现代码问题
-- 🔧 优化代码结构，提取独立函数，减少嵌套
-- 📝 优化注释，更详细的中文说明，小白友好
-- ⚡ 优化错误处理，更友好的错误提示
-- 🎨 统一日志输出格式，提升可读性
-- ✅ 全面测试通过，代码质量显著提升
-
-### v2026.01.16.165956
-
-- 🎉 全面优化代码结构，提升可读性和可维护性
-- ✨ 提取常量，消除重复代码
-- 🚀 优化辅助函数，减少代码重复
-- 💾 简化注释，保留有价值说明
-- ✅ 完整的功能测试和回归测试
-
-### v2.2.0
-
-- ✨ 新增速度限制功能
-- 🚀 简化项目结构为单文件
-- 💾 优化缓存性能
-- 🔧 提升代码可维护性
-
-### v2.1.0
-
-- ✨ 智能缓存机制
-- 📊 缓存统计和监控
-- 🔧 优化的错误处理
-
-### v2.0.0
-
-- 🎉 完全重构为模块化架构
-- ✨ 增强的安全性和验证
-- 📊 完善的日志系统
-
-### v1.0.0
-
-- 🎯 基础功能实现
-- 🔑 令牌验证
-- 📁 GitHub 文件代理
+1. **不要将令牌硬编码在代码中** - 使用环境变量
+2. **定期更换令牌** - 建议每个月更换一次
+3. **监控访问日志** - 使用 `npm run logs` 查看异常请求
+4. **限制令牌分发** - 只给信任的人使用令牌
+5. **使用 HTTPS** - Vercel 自动提供 SSL 证书
 
 ---
 
 ## 🤝 贡献指南
 
-欢迎贡献代码！请遵循以下步骤：
+欢迎提交 Issue 和 Pull Request！
 
 1. Fork 本仓库
 2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
@@ -528,15 +314,12 @@ NODE_ENV=production                             # 可选：运行环境
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
-**代码规范：**
+### 代码规范
 
-```bash
-# 在提交前运行代码检查
-npm run lint
-
-# 自动修复代码问题
-npm run lint:fix
-```
+- 使用 2 空格缩进
+- 使用双引号
+- 必须使用分号
+- 运行 `npm run lint` 检查代码
 
 ---
 
@@ -546,24 +329,21 @@ npm run lint:fix
 
 ---
 
-## 📞 支持
-
-如有问题或建议，请：
-
-- 📧 创建 [Issue](https://github.com/Nine499/github-raw/issues)
-- 💬 参与 [Discussions](https://github.com/Nine499/github-raw/discussions)
-- 📖 查看 [IFLOW.md](IFLOW.md) 了解详细技术文档
-
----
-
 ## 🙏 致谢
 
-- [Vercel](https://vercel.com) - 提供优秀的 Serverless 平台
-- [GitHub](https://github.com) - 提供原始文件托管服务
-- [Node.js](https://nodejs.org) - 提供 JavaScript 运行时
-- [WHATWG URL API](https://url.spec.whatwg.org/) - 提供现代 URL 处理标准
-- [ESLint](https://eslint.org) - 提供代码质量检查工具
+- [Vercel](https://vercel.com) - 提供免费的无服务器部署平台
+- [GitHub](https://github.com) - 代码托管平台
 
 ---
 
-**Made with ❤️ by [Nine499](https://github.com/Nine499)**
+## 📞 联系方式
+
+- 作者：Nine499
+- 项目地址：[https://github.com/Nine499/github-raw](https://github.com/Nine499/github-raw)
+- 问题反馈：[Issues](https://github.com/Nine499/github-raw/issues)
+
+---
+
+**如果这个项目对你有帮助，请给个 ⭐️ Star 支持一下！**
+
+Made with ❤️ by Nine499
