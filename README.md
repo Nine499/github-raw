@@ -1,6 +1,6 @@
 # GitHub Raw 代理服务
 
-![Version](https://img.shields.io/badge/version-2026.01.21-blue)
+![Version](https://img.shields.io/badge/version-2026.01.24-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-green)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 ![Vercel](https://img.shields.io/badge/deploy%20with-vercel-000000.svg)
@@ -57,6 +57,12 @@
 
 - 访问 `/health` 查看服务状态
 - 显示运行时间、缓存使用率、限流配置
+
+### 📍 IP 日志记录
+
+- 自动记录客户端 IP 地址
+- 支持多种代理环境（Cloudflare、Vercel、Nginx）
+- 所有日志包含客户端 IP，便于追踪和调试
 
 ---
 
@@ -145,7 +151,7 @@ https://your-domain.vercel.app/health
   "status": "ok",
   "uptime": "2天 5小时 30分钟 15秒",
   "timestamp": "2026-01-23T10:30:00.000Z",
-  "version": "2026.01.21.140112",
+  "version": "2026.01.24.094012",
   "cache": {
     "size": 45,
     "maxSize": 100,
@@ -232,6 +238,36 @@ npm run deploy
 # 查看日志
 npm run logs
 ```
+
+## 🧪 测试
+
+项目内置完整测试套件，覆盖所有核心功能。
+
+运行测试：
+```bash
+# 创建临时测试文件
+cat > test-all.js << 'EOF'
+import { RateLimiter, SimpleCache, validateToken, validatePath, sanitizePath, validateFileType, getClientIP } from "./api/github-raw.js";
+// ... 测试代码 ...
+EOF
+
+# 运行测试
+node test-all.js
+
+# 清理测试文件
+rm test-all.js
+```
+
+测试覆盖：
+- ✅ getClientIP 函数（4 个测试用例）
+- ✅ validateToken 函数（4 个测试用例）
+- ✅ validatePath 函数（8 个测试用例）
+- ✅ sanitizePath 函数（6 个测试用例）
+- ✅ validateFileType 函数（8 个测试用例）
+- ✅ SimpleCache 类（7 个测试用例）
+- ✅ RateLimiter 类（5 个测试用例）
+
+总计：42 个测试用例
 
 ---
 

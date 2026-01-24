@@ -2,10 +2,10 @@
  * ============================================
  * GitHub Raw 代理服务 - 新手友好版
  * ============================================
- * 
+ *
  * 【功能说明】
  * 这个服务就像一个"快递中转站"，帮你从 GitHub 快速获取文件。
- * 
+ *
  * 【工作流程】
  * 1. 用户访问 → 提供令牌和文件路径
  * 2. 验证令牌 → 确认你有权限使用
@@ -14,11 +14,11 @@
  *   - 有缓存 → 直接返回（速度快）
  *   - 无缓存 → 从 GitHub 下载并存入缓存
  * 5. 返回结果 → 把文件内容给用户
- * 
+ *
  * 【使用方法】
  * 访问：https://你的域名/owner/repo/branch/path?nine-token=你的令牌
  * 示例：https://你的域名/Nine499/github-raw/master/README.md?nine-token=abc123
- * 
+ *
  * 【健康检查】
  * 访问 /health 查看服务状态
  */
@@ -53,11 +53,35 @@ const ALLOWED_FILE_TYPES = ["text", "image", "application", "audio", "video"];
 // ============================================
 
 /**
+ * 获取客户端IP地址
+ * 支持代理环境（如Cloudflare、Vercel）
+ */
+function getClientIP(request) {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const realIP = request.headers.get("x-real-ip");
+  const cfIP = request.headers.get("cf-connecting-ip");
+
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  if (realIP) {
+    return realIP;
+  }
+  if (cfIP) {
+    return cfIP;
+  }
+  return "unknown";
+}
+
+/**
  * 解析请求参数
  * 从 URL 中提取令牌和文件路径
  */
 function parseRequestParams(request) {
-  const requestUrl = new URL(request.url || "", `http://${request.headers.host}`);
+  const requestUrl = new URL(
+    request.url || "",
+    `http://${request.headers.host}`,
+  );
   const userToken = requestUrl.searchParams.get("nine-token");
   const githubPath = requestUrl.searchParams.get("path");
 
@@ -72,7 +96,8 @@ function parseRequestParams(request) {
  * 就像检查"门票"是否有效
  */
 function validateToken(userToken, expectedToken) {
-  return userToken && expectedToken && userToken === expectedToken;
+  if (!userToken || !expectedToken) return false;
+  return userToken === expectedToken;
 }
 
 /**
@@ -105,7 +130,9 @@ function sanitizePath(path) {
  */
 function validateFileType(contentType) {
   if (!contentType) return true;
-  return ALLOWED_FILE_TYPES.some((type) => contentType.toLowerCase().includes(type));
+  return ALLOWED_FILE_TYPES.some((type) =>
+    contentType.toLowerCase().includes(type),
+  );
 }
 
 // ============================================
@@ -268,14 +295,19 @@ async function fetchFromGitHub(path, token) {
 
     // 如果请求失败
     if (!response.ok) {
-      throw new Error(`GitHub API 错误: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `GitHub API 错误: ${response.status} ${response.statusText}`,
+      );
     }
 
     const contentType = response.headers.get("content-type") || "text/plain";
     let content;
 
     // 根据文件类型决定如何读取内容
-    if (contentType.includes("text/") || contentType.includes("application/json")) {
+    if (
+      contentType.includes("text/") ||
+      contentType.includes("application/json")
+    ) {
       content = await response.text(); // 文本文件
     } else {
       const buffer = await response.arrayBuffer();
@@ -343,6 +375,7 @@ const cache = new SimpleCache();
  */
 export default async function handler(request, response) {
   const startTime = Date.now();
+  const clientIP = getClientIP(request);
 
   // ========================================
   // 步骤 1：健康检查（查看服务状态）
@@ -360,7 +393,7 @@ export default async function handler(request, response) {
       status: "ok",
       uptime: uptimeFormatted,
       timestamp: new Date().toISOString(),
-      version: "2026.01.21.140112",
+      version: "2026.01.24.094012",
       cache: {
         size: cache.cache.size,
         maxSize: CACHE_MAX_SIZE,
@@ -384,13 +417,17 @@ export default async function handler(request, response) {
 
   // 检查令牌是否存在
   if (!userToken) {
-    console.warn("❌ 缺少令牌参数: 请在 URL 中添加 ?nine-token=你的令牌");
+    console.warn(
+      `❌ IP ${clientIP} 缺少令牌参数: 请在 URL 中添加 ?nine-token=你的令牌`,
+    );
     return redirectToSafePage(response);
   }
 
   // 检查路径是否存在
   if (!githubPath) {
-    console.warn("❌ 缺少路径参数: 请在 URL 中添加 ?path=文件路径");
+    console.warn(
+      `❌ IP ${clientIP} 缺少路径参数: 请在 URL 中添加 ?path=文件路径`,
+    );
     return redirectToSafePage(response);
   }
 
@@ -398,7 +435,7 @@ export default async function handler(request, response) {
   // 步骤 3：验证令牌
   // ========================================
   if (!validateToken(userToken, process.env.NINE49TOKEN)) {
-    console.warn("❌ 令牌验证失败: 令牌不正确");
+    console.warn(`❌ IP ${clientIP} 令牌验证失败: 令牌不正确`);
     return redirectToSafePage(response);
   }
 
@@ -406,7 +443,7 @@ export default async function handler(request, response) {
   // 步骤 4：限流检查
   // ========================================
   if (!rateLimiter.isAllowed()) {
-    console.warn("❌ 请求频率超限: 每秒最多 10 次");
+    console.warn(`❌ IP ${clientIP} 请求频率超限: 每秒最多 10 次`);
     return redirectToSafePage(response);
   }
 
@@ -415,7 +452,7 @@ export default async function handler(request, response) {
   // ========================================
   const sanitizedPath = sanitizePath(githubPath);
   if (!validatePath(sanitizedPath)) {
-    console.warn("❌ 路径验证失败:", githubPath);
+    console.warn(`❌ IP ${clientIP} 路径验证失败:`, githubPath);
     console.warn("   正确格式: owner/repo/branch/path");
     console.warn("   示例: Nine499/github-raw/master/README.md");
     return redirectToSafePage(response);
@@ -429,7 +466,11 @@ export default async function handler(request, response) {
 
   if (cachedResult) {
     const duration = Date.now() - startTime;
-    console.info("✅ 缓存命中:", sanitizedPath, `(${duration}ms)`);
+    console.info(
+      `✅ IP ${clientIP} 缓存命中:`,
+      sanitizedPath,
+      `(${duration}ms)`,
+    );
     setCacheHeaders(response, "HIT", cachedResult.contentType);
     return response.status(200).send(cachedResult.content);
   }
@@ -437,8 +478,11 @@ export default async function handler(request, response) {
   // ========================================
   // 步骤 7：从 GitHub 下载文件
   // ========================================
-  console.info("📥 从 GitHub 获取:", sanitizedPath);
-  const githubResult = await fetchFromGitHub(sanitizedPath, process.env.GITHUB49TOKEN);
+  console.info(`📥 IP ${clientIP} 从 GitHub 获取:`, sanitizedPath);
+  const githubResult = await fetchFromGitHub(
+    sanitizedPath,
+    process.env.GITHUB49TOKEN,
+  );
 
   if (!githubResult.success) {
     console.error("❌ GitHub API 调用失败:", githubResult.error);
@@ -467,7 +511,7 @@ export default async function handler(request, response) {
   setCacheHeaders(response, "MISS", githubResult.contentType);
 
   const duration = Date.now() - startTime;
-  console.info("✅ 请求处理成功:", {
+  console.info(`✅ IP ${clientIP} 请求处理成功:`, {
     path: sanitizedPath,
     duration: `${duration}ms`,
     cacheSize: cache.cache.size,
@@ -479,4 +523,12 @@ export default async function handler(request, response) {
 // ============================================
 // 第七部分：导出（用于测试）
 // ============================================
-export { RateLimiter, SimpleCache, validateToken, validatePath, sanitizePath, validateFileType };
+export {
+  RateLimiter,
+  SimpleCache,
+  validateToken,
+  validatePath,
+  sanitizePath,
+  validateFileType,
+  getClientIP,
+};

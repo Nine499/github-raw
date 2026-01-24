@@ -22,9 +22,9 @@ export default [
     },
     rules: {
       // 代码风格规则
-      "indent": ["error", 2], // 使用 2 空格缩进
-      "quotes": ["error", "double"], // 使用双引号
-      "semi": ["error", "always"], // 必须使用分号
+      indent: ["error", 2], // 使用 2 空格缩进
+      quotes: ["error", "double"], // 使用双引号
+      semi: ["error", "always"], // 必须使用分号
       "linebreak-style": ["error", "unix"], // 使用 Unix 换行符
 
       // 错误检测规则
@@ -35,7 +35,7 @@ export default [
       // 最佳实践
       "no-var": "error", // 禁止使用 var，使用 let/const
       "prefer-const": "warn", // 建议使用 const
-      "eqeqeq": ["error", "always"], // 必须使用 === 或 !==
+      eqeqeq: ["error", "always"], // 必须使用 === 或 !==
     },
   },
 ];
