@@ -32,24 +32,11 @@ npm run logs
 
 ## 测试说明
 
-项目内置完整测试套件，覆盖所有核心功能。
+项目内置完整测试套件，覆盖所有核心功能（开发阶段使用）。
 
-运行测试：
-```bash
-# 创建临时测试文件
-cat > test-all.js << 'EOF'
-import { RateLimiter, SimpleCache, validateToken, validatePath, sanitizePath, validateFileType, getClientIP } from "./api/github-raw.js";
-// ... 测试代码 ...
-EOF
+**注意：生产环境代码已移除所有测试相关导出，以下内容仅适用于开发阶段。**
 
-# 运行测试
-node test-all.js
-
-# 清理测试文件
-rm test-all.js
-```
-
-测试覆盖：
+开发测试覆盖：
 - ✅ getClientIP 函数（4 个测试用例）
 - ✅ validateToken 函数（4 个测试用例）
 - ✅ validatePath 函数（8 个测试用例）
@@ -59,6 +46,20 @@ rm test-all.js
 - ✅ RateLimiter 类（5 个测试用例）
 
 总计：42 个测试用例
+
+在开发阶段，如需运行测试，可临时添加测试导出：
+```javascript
+// 临时添加到文件末尾进行测试
+export {
+  RateLimiter,
+  SimpleCache,
+  validateToken,
+  validatePath,
+  sanitizePath,
+  validateFileType,
+  getClientIP,
+};
+```
 
 ## 代码结构 (7 个部分)
 
@@ -72,7 +73,8 @@ rm test-all.js
 5. **响应处理** - 辅助函数
 6. **主处理函数** - handler 函数（入口）
    - 所有日志包含客户端 IP 地址
-7. **导出** - 测试用的导出
+7. **导出** - 默认导出 handler 函数（生产环境）
+   - 开发阶段可临时添加测试导出（见测试说明）
 
 ## 代码风格规范
 

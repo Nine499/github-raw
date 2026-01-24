@@ -151,7 +151,7 @@ https://your-domain.vercel.app/health
   "status": "ok",
   "uptime": "2天 5小时 30分钟 15秒",
   "timestamp": "2026-01-23T10:30:00.000Z",
-  "version": "2026.01.24.094012",
+   "version": "2026.01.24.100326",
   "cache": {
     "size": 45,
     "maxSize": 100,
