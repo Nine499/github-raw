@@ -1,46 +1,41 @@
-# GitHub Raw 代理服务（极客精简版）
+# GitHub Raw 代理服务（极简直通版）
 
-这是一个部署在 Vercel 的 GitHub Raw 代理服务，用于安全、快速地获取 `raw.githubusercontent.com` 上的文件内容。它通过 Vercel Edge Cache 提升访问速度，并提供简单的令牌校验，避免被滥用。
-
-## 适用场景
-
-- 需要在受限网络中访问 GitHub Raw 文件
-- 希望通过统一域名代理 GitHub 静态资源
-- 对图片/二进制文件直链有稳定可用的需求
+一个部署在 Vercel 的 GitHub Raw 代理服务。
+目标是用最少逻辑实现稳定透传：保留 token 鉴权、透传上游状态码与内容、并使用 Vercel Edge Cache 提升命中率。
 
 ## 功能特性
 
-- **Token 保护**：必须携带 `nine-token` 才能访问
-- **全类型透传**：文本、图片、二进制一律原样返回
-- **Edge 缓存**：通过 `s-maxage` 利用 Vercel 全球节点缓存
-- **健康检查**：`/health` 返回运行状态
+- **Token 鉴权**：必须携带 `nine-token` 才能访问
+- **全类型透传**：文本、图片、二进制统一原样返回
+- **状态码透传**：上游 `raw.githubusercontent.com` 的状态码直接返回
+- **Edge Cache**：`Cache-Control: public, max-age=300, s-maxage=3600`
 
 ## 运行方式
 
-### 1. 部署到 Vercel
+### 1) 部署到 Vercel
 
-直接将仓库导入 Vercel 即可，无需额外构建步骤。`vercel.json` 已配置重写规则，所有请求会转发到 API：
+直接导入仓库即可，无需额外构建步骤。
+
+`vercel.json` 已配置重写：
 
 - `/(.*)` → `/api/github-raw.js?path=$1`
 
-### 2. 配置环境变量
+### 2) 配置环境变量
 
-在 Vercel 项目设置中添加以下变量：
+在 Vercel 项目设置中添加：
 
-- `NINE49TOKEN`：访问令牌，必填
-- `GITHUB49TOKEN`：GitHub Token，可选（用于提升 GitHub API 访问额度）
+- `NINE49TOKEN`（必填）：访问令牌
+- `GITHUB49TOKEN`（可选）：GitHub Token，用于提升匿名访问限制下的可用性
 
-### 3. 访问方式
+### 3) 访问格式
 
-请求格式：
-
-```
+```text
 https://<your-vercel-domain>/<owner>/<repo>/<branch>/<path>?nine-token=<NINE49TOKEN>
 ```
 
 示例：
 
-```
+```text
 https://your-app.vercel.app/owner/repo/main/assets/logo.png?nine-token=YOUR_TOKEN
 ```
 
@@ -50,68 +45,52 @@ https://your-app.vercel.app/owner/repo/main/assets/logo.png?nine-token=YOUR_TOKE
 
 - **请求**：`GET /<path>?nine-token=<token>`
 - **行为**：转发到 `https://raw.githubusercontent.com/<path>`
-- **响应**：透传二进制数据，并保留原始 `content-type`
-
-### 健康检查
-
-- **请求**：`GET /health?nine-token=<token>`
-- **响应示例**：
-
-```
-{
-  "status": "ok",
-  "uptime": "123s",
-  "cache": "Vercel Edge"
-}
-```
+- **响应**：
+  - 状态码透传上游
+  - `Content-Type` 透传上游（缺失时为 `application/octet-stream`）
+  - Body 以二进制方式透传
 
 ## 缓存策略
 
-响应头：
+统一响应头：
 
 - `Cache-Control: public, max-age=300, s-maxage=3600`
 
-说明：
+含义：
 
 - 浏览器缓存 5 分钟
 - Vercel Edge 缓存 1 小时
 
 ## 安全机制
 
-- 未携带或令牌错误：直接重定向到 `https://www.baidu.com`
-- 未提供路径：直接重定向
-
-> 如需替换重定向地址，可在 `api/github-raw.js` 中修改 `REDIRECT_URL`。
+- `nine-token` 缺失或不匹配：返回 `403 Forbidden`
+- `path` 缺失或为空：返回 `400 Bad Request`
 
 ## 项目结构
 
-```
+```text
 .
 ├── api/
-│   └── github-raw.js   # 代理逻辑
-├── vercel.json         # 重写规则
+│   └── github-raw.js
+├── vercel.json
 └── README.md
 ```
 
-## 使用建议
-
-- 推荐开启 `GITHUB49TOKEN`，避免匿名请求被限流
-- 静态资源（图片、字体等）更适合走此代理通道
-- 如果需要更细粒度的权限控制，可在 API 中加入路径白名单
-
 ## 常见问题
 
-### 1. 为什么不使用内存缓存？
+### 为什么返回 403 或 400？
 
-该项目为 Serverless 部署，实例无状态且随时销毁。内存缓存命中率低且不稳定，因此改为依赖 Vercel Edge Cache。
+- `403 Forbidden`：`nine-token` 缺失或不正确
+- `400 Bad Request`：未提供有效 `path`
 
-### 2. 为什么不做内存限流？
+### 为什么不做内存缓存与内存限流？
 
-单实例限流无法对抗分布式流量，Vercel 已提供平台级 DDoS 防护，保持代码极简更可靠。
+该项目运行在 Serverless 环境，实例无状态且可回收：
 
-### 3. 访问被重定向到百度？
+- 内存缓存命中率与稳定性都不理想
+- 单实例限流无法覆盖分布式流量
 
-说明 `nine-token` 不正确或未提供 `path` 参数。请确认访问格式与环境变量配置。
+因此保持代理层极简，缓存交给 Edge，防护依赖平台能力。
 
 ## License
 
