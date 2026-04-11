@@ -1,59 +1,70 @@
-// Version: 2026.02.27.161447
 /**
- * GitHub Raw 代理服务（极简直通）
+ * GitHub Raw 代理服务（Vercel）
  *
- * 设计目标：
- * - 保留最小必要鉴权（nine-token）
- * - 删除特殊路由与兜底重定向
- * - 透传 GitHub Raw 状态码与内容
- * - 使用 Edge Cache 提升静态内容命中率
+ * 目标：
+ * 1) 用 nine-token 做最小鉴权
+ * 2) 透传 GitHub Raw 的状态码和内容
+ * 3) 使用 Vercel Edge Cache 提高命中率
  */
 import { Buffer } from "node:buffer";
 
+// 统一常量，避免魔法字符串分散在代码里
+const CACHE_CONTROL = "public, max-age=300, s-maxage=3600";
+const DEFAULT_CONTENT_TYPE = "application/octet-stream";
+const USER_AGENT = "Vercel-Github-Proxy";
+
 export default async function handler(req, res) {
-  // 读取环境变量：访问令牌与可选 GitHub Token
+  // 读取服务端环境变量：访问令牌 + 可选 GitHub Token
   const { NINE49TOKEN, GITHUB49TOKEN } = process.env;
 
-  // 解析请求参数，path 去除前导斜杠避免双斜杠拼接
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const token = url.searchParams.get("nine-token");
-  const path = (url.searchParams.get("path") || "").replace(/^\/+/, "");
+  // 解析请求 URL
+  const requestUrl = new URL(req.url, `http://${req.headers.host}`);
 
-  // 鉴权失败直接拒绝
-  if (token !== NINE49TOKEN) {
+  // nine-token：访问鉴权参数
+  const requestToken = requestUrl.searchParams.get("nine-token");
+
+  // path：由 vercel rewrites 注入，去掉前导 / 避免拼接出双斜杠
+  const rawPath = requestUrl.searchParams.get("path") || "";
+  const githubPath = rawPath.replace(/^\/+/, "");
+
+  // 鉴权失败：直接拒绝
+  if (requestToken !== NINE49TOKEN) {
     return res.status(403).send("Forbidden");
   }
 
-  // 缺少路径直接返回请求错误
-  if (!path) {
+  // 缺少 path：直接返回请求参数错误
+  if (!githubPath) {
     return res.status(400).send("Bad Request");
   }
 
-  // 构造 GitHub Raw 目标地址
-  const githubUrl = `https://raw.githubusercontent.com/${path}`;
+  // 拼接上游 GitHub Raw 地址
+  const upstreamUrl = `https://raw.githubusercontent.com/${githubPath}`;
 
-  // 仅在配置了 GITHUB49TOKEN 时附带 Authorization
-  const headers = {
-    "User-Agent": "Vercel-Github-Proxy",
+  // 准备上游请求头
+  const upstreamHeaders = {
+    "User-Agent": USER_AGENT,
   };
+
+  // 配置了 GITHUB49TOKEN 时，携带 Authorization 以提升可用性
   if (GITHUB49TOKEN) {
-    headers.Authorization = `token ${GITHUB49TOKEN}`;
+    upstreamHeaders.Authorization = `token ${GITHUB49TOKEN}`;
   }
 
-  // 请求上游并透传状态码
-  const response = await fetch(githubUrl, { headers });
-  res.status(response.status);
+  // 请求上游
+  const upstreamResponse = await fetch(upstreamUrl, { headers: upstreamHeaders });
 
-  // 统一缓存策略：浏览器 5 分钟，Edge 1 小时
-  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
+  // 状态码透传
+  res.status(upstreamResponse.status);
 
-  // 保留上游内容类型，缺失时回落为通用二进制类型
-  res.setHeader(
-    "Content-Type",
-    response.headers.get("content-type") || "application/octet-stream",
-  );
+  // 固定缓存策略：浏览器缓存 5 分钟，Edge 缓存 1 小时
+  res.setHeader("Cache-Control", CACHE_CONTROL);
 
-  // 统一二进制透传，兼容文本/图片/任意文件
-  const buffer = Buffer.from(await response.arrayBuffer());
-  return res.send(buffer);
+  // Content-Type 透传，缺失时降级为二进制类型
+  const contentType =
+    upstreamResponse.headers.get("content-type") || DEFAULT_CONTENT_TYPE;
+  res.setHeader("Content-Type", contentType);
+
+  // 统一按二进制返回，兼容文本、图片和其他文件
+  const bodyBuffer = Buffer.from(await upstreamResponse.arrayBuffer());
+  return res.send(bodyBuffer);
 }

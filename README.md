@@ -1,70 +1,24 @@
-# GitHub Raw 代理服务（极简直通版）
+# GitHub Raw 代理（Vercel）
 
-一个部署在 Vercel 的 GitHub Raw 代理服务。
-目标是用最少逻辑实现稳定透传：保留 token 鉴权、透传上游状态码与内容、并使用 Vercel Edge Cache 提升命中率。
+一个部署在 Vercel 的极简代理服务，用于转发 `raw.githubusercontent.com` 文件内容。
 
-## 功能特性
+目标：
+- 保留最小必要鉴权（`nine-token`）
+- 原样透传上游状态码与内容类型
+- 使用 Vercel Edge Cache 提高命中率
 
-- **Token 鉴权**：必须携带 `nine-token` 才能访问
-- **全类型透传**：文本、图片、二进制统一原样返回
-- **状态码透传**：上游 `raw.githubusercontent.com` 的状态码直接返回
-- **Edge Cache**：`Cache-Control: public, max-age=300, s-maxage=3600`
+---
 
-## 运行方式
+## 功能说明
 
-### 1) 部署到 Vercel
+- **Token 鉴权**：请求必须带 `nine-token`
+- **状态码透传**：上游返回什么状态码，就返回什么状态码
+- **内容透传**：支持文本、图片、二进制文件
+- **缓存策略**：
+  - 浏览器缓存：`max-age=300`（5 分钟）
+  - Edge 缓存：`s-maxage=3600`（1 小时）
 
-直接导入仓库即可，无需额外构建步骤。
-
-`vercel.json` 已配置重写：
-
-- `/(.*)` → `/api/github-raw.js?path=$1`
-
-### 2) 配置环境变量
-
-在 Vercel 项目设置中添加：
-
-- `NINE49TOKEN`（必填）：访问令牌
-- `GITHUB49TOKEN`（可选）：GitHub Token，用于提升匿名访问限制下的可用性
-
-### 3) 访问格式
-
-```text
-https://<your-vercel-domain>/<owner>/<repo>/<branch>/<path>?nine-token=<NINE49TOKEN>
-```
-
-示例：
-
-```text
-https://your-app.vercel.app/owner/repo/main/assets/logo.png?nine-token=YOUR_TOKEN
-```
-
-## 接口说明
-
-### 文件代理
-
-- **请求**：`GET /<path>?nine-token=<token>`
-- **行为**：转发到 `https://raw.githubusercontent.com/<path>`
-- **响应**：
-  - 状态码透传上游
-  - `Content-Type` 透传上游（缺失时为 `application/octet-stream`）
-  - Body 以二进制方式透传
-
-## 缓存策略
-
-统一响应头：
-
-- `Cache-Control: public, max-age=300, s-maxage=3600`
-
-含义：
-
-- 浏览器缓存 5 分钟
-- Vercel Edge 缓存 1 小时
-
-## 安全机制
-
-- `nine-token` 缺失或不匹配：返回 `403 Forbidden`
-- `path` 缺失或为空：返回 `400 Bad Request`
+---
 
 ## 项目结构
 
@@ -76,22 +30,72 @@ https://your-app.vercel.app/owner/repo/main/assets/logo.png?nine-token=YOUR_TOKE
 └── README.md
 ```
 
-## 常见问题
+---
 
-### 为什么返回 403 或 400？
+## 部署
 
-- `403 Forbidden`：`nine-token` 缺失或不正确
-- `400 Bad Request`：未提供有效 `path`
+直接将仓库导入 Vercel 即可，无需构建步骤。
 
-### 为什么不做内存缓存与内存限流？
+当前 `vercel.json` 重写规则：
 
-该项目运行在 Serverless 环境，实例无状态且可回收：
+- `/:path*` → `/api/github-raw.js?path=:path*`
 
-- 内存缓存命中率与稳定性都不理想
-- 单实例限流无法覆盖分布式流量
+含义：访问任意路径时，都会转发到代理函数，并把原路径放到 `path` 参数。
 
-因此保持代理层极简，缓存交给 Edge，防护依赖平台能力。
+---
+
+## 环境变量
+
+在 Vercel 项目中配置：
+
+- `NINE49TOKEN`（必填）
+  - 访问令牌；请求中的 `nine-token` 必须与它完全一致
+- `GITHUB49TOKEN`（可选）
+  - GitHub Token；配置后会以 `Authorization` 请求上游，提升限流场景下可用性
+
+---
+
+## 使用方式
+
+请求格式：
+
+```text
+https://<你的域名>/<owner>/<repo>/<branch>/<file-path>?nine-token=<NINE49TOKEN>
+```
+
+示例：
+
+```text
+https://your-app.vercel.app/octocat/Hello-World/master/README?nine-token=YOUR_TOKEN
+```
+
+上面请求会被代理到：
+
+```text
+https://raw.githubusercontent.com/octocat/Hello-World/master/README
+```
+
+---
+
+## 返回行为
+
+- `nine-token` 不正确或缺失：`403 Forbidden`
+- `path` 为空：`400 Bad Request`
+- 其他情况：
+  - 状态码透传上游
+  - `Content-Type` 透传上游
+  - 若上游未返回 `Content-Type`，使用 `application/octet-stream`
+
+---
+
+## 适用场景
+
+- 需要通过私有令牌控制访问的 Raw 文件代理
+- 需要统一缓存策略、减少重复回源
+- 需要稳定转发文本/图片/二进制资源
+
+---
 
 ## License
 
-自行维护与扩展，无附带任何保证。
+`License` 文件已在仓库根目录提供。

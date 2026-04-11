@@ -4,8 +4,8 @@
   },
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/api/github-raw.js?path=$1"
+      "source": "/:path*",
+      "destination": "/api/github-raw.js?path=:path*"
     }
   ]
 }
