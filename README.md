@@ -4,8 +4,8 @@
 
 目标：
 - 保留最小必要鉴权（`nine-token`）
-- 原样透传上游状态码与内容类型
-- 使用 Vercel Edge Cache 提高命中率
+- 流式转发上游响应，避免大文件整包读入内存
+- 使用 Vercel Edge Cache 与协商缓存减少重复回源
 
 ---
 
@@ -13,10 +13,11 @@
 
 - **Token 鉴权**：请求必须带 `nine-token`
 - **状态码透传**：上游返回什么状态码，就返回什么状态码
-- **内容透传**：支持文本、图片、二进制文件
+- **内容流式转发**：支持文本、图片、二进制文件，降低大文件内存占用
 - **缓存策略**：
   - 浏览器缓存：`max-age=300`（5 分钟）
   - Edge 缓存：`s-maxage=3600`（1 小时）
+  - 透传 `ETag`、`Last-Modified` 等协商缓存响应头
 
 ---
 
@@ -53,6 +54,8 @@
 - `GITHUB49TOKEN`（可选）
   - GitHub Token；配置后会以 `Authorization` 请求上游，提升限流场景下可用性
 
+> 未配置 `NINE49TOKEN` 时，请求会被拒绝。
+
 ---
 
 ## 使用方式
@@ -81,10 +84,13 @@ https://raw.githubusercontent.com/octocat/Hello-World/master/README
 
 - `nine-token` 不正确或缺失：`403 Forbidden`
 - `path` 为空：`400 Bad Request`
+- 上游请求失败：`502 Bad Gateway`
 - 其他情况：
   - 状态码透传上游
+  - 响应体流式转发，不包裹 JSON
   - `Content-Type` 透传上游
   - 若上游未返回 `Content-Type`，使用 `application/octet-stream`
+  - 透传 `ETag`、`Last-Modified`、`Accept-Ranges`、`Content-Range`
 
 ---
 
