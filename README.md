@@ -59,13 +59,16 @@ https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<file-path>
   └─ 非错误响应：状态码、允许的响应头和原始流式响应体返回给客户端
 ```
 
-`vercel.json` 中的 rewrite 把所有路径交给同一个函数：
+`vercel.json` 中的两条路由规则：
 
 ```text
-/:path*  →  /api/github-raw.js?path=:path*
+/        →  302 跳转 https://www.baidu.com/   （redirect，裸根路径）
+/:path*  →  /api/github-raw.js?path=:path*    （rewrite，其余全部路径）
 ```
 
-因此 URL 中的仓库路径不需要写成 `path` 查询参数；`path` 是 Vercel 在内部注入的参数，客户端自带的查询参数（如 `nine-token`）会原样保留。访问代理根路径时，内部 `path` 为空。
+裸根路径单独用 redirect 处理：Vercel 在 rewrite 之前会先对 `/` 做静态文件查找，本项目没有任何静态输出，`/` 会直接 404 且永远到不了函数；redirect 的优先级高于静态查找，把根路径固定 302 到百度，与函数内部的错误跳转保持同一行为。
+
+因此 URL 中的仓库路径不需要写成 `path` 查询参数；`path` 是 Vercel 在内部注入的参数，客户端自带的查询参数（如 `nine-token`）会原样保留。
 
 ## 发送请求
 
@@ -132,10 +135,11 @@ curl --fail --location \
 
 ### 错误响应
 
-以下情况都会记录访问摘要，然后返回 `302` 并跳转到固定地址：
+以下情况返回 `302` 并跳转到固定地址。其中裸根路径由 `vercel.json` 的 redirect 在路由层处理，其余由函数处理并记录访问摘要：
 
 | 情况                               | 结果                             |
 | ---------------------------------- | -------------------------------- |
+| 裸根路径 `/`（路由层 redirect）    | `302` → `https://www.baidu.com/` |
 | `nine-token` 缺失或不正确          | `302` → `https://www.baidu.com/` |
 | `NINE49TOKEN` 未配置               | `302` → `https://www.baidu.com/` |
 | `path` 为空                        | `302` → `https://www.baidu.com/` |
@@ -248,7 +252,7 @@ curl -i 'https://<domain>/octocat/Hello-World/master/README'
 curl -i 'https://<domain>/octocat/Hello-World/master/README?nine-token=<NINE49TOKEN>'
 ```
 
-预期分别是空路径错误跳转、缺少 token 的鉴权错误跳转，以及在有效配置下的非错误状态、原始响应体和固定缓存头。第三条依赖网络、Vercel 部署和上游仓库可用。
+预期分别是裸根路径 302 跳转（`vercel.json` 的 redirect）、缺少 token 的鉴权错误跳转，以及在有效配置下的非错误状态、原始响应体和固定缓存头。第三条依赖网络、Vercel 部署和上游仓库可用。
 
 ## 项目文件
 

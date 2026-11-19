@@ -1,7 +1,15 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "github": {
     "silent": true
   },
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "https://www.baidu.com/",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/:path*",

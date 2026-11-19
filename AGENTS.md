@@ -41,13 +41,15 @@ curl -i 'https://<domain>/octocat/Hello-World/master/README?nine-token=<NINE49TO
 ```text
 api/
   github-raw.js   # the entire proxy: constants, helpers, and the single handler
-vercel.json       # the only rewrite: /:path* → /api/github-raw.js?path=:path*
+vercel.json       # a root redirect + the only rewrite: / → Baidu; /:path* → /api/github-raw.js?path=:path*
 CLAUDE.md         # pointer to this file
 AGENTS.md         # this file — single source of truth for engineering guidance
 README.md         # human-facing deployment & interface docs
 License           # license text
 .gitignore        # standard ignores
 ```
+
+Why the root redirect exists: Vercel checks for a static index before the `/:path*` rewrite on the bare root, and this project has no static output — so `/` 404s at the routing layer and never reaches the function. The `redirects` rule (evaluated before rewrites) sends the bare root to the same fixed Baidu address, making the outward behavior uniform: every invalid request, root included, lands on the same 302.
 
 ## Request pipeline
 
@@ -78,7 +80,7 @@ License           # license text
 3. Run both static checks; smoke the changed branch with a fake req/res.
 4. If deployed, run the three curl contract checks.
 
-**Change routing**: edit the rewrite in `vercel.json`, verify `path` still reaches the function as a query param, sync README's URL examples.
+**Change routing**: edit the redirect/rewrite rules in `vercel.json`, verify `path` still reaches the function as a query param, sync README's URL examples. Keep the bare-root redirect first — removing it brings back the routing-layer 404 on `/`.
 
 **Add a forwarded header**: extend the relevant whitelist (`FORWARDED_REQUEST_HEADERS` / `FORWARDED_RESPONSE_HEADERS`), document in README, and state why it is safe (caching, privacy, implementation-detail exposure).
 
