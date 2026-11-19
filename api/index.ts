@@ -7,12 +7,10 @@
 
 import { randomUUID } from "node:crypto";
 
-// 相对导入写编译后扩展名 .js：Vercel 对 api/ 近乎 1:1 转译、不打包，
-// 运行时是纯 Node ESM loader，无法解析 .ts 扩展名。
-import { classifyAuth } from "../src/auth.js";
-import { logAccess } from "../src/log.js";
-import { errorRedirect, successResponse } from "../src/proxy-response.js";
-import { fetchUpstream } from "../src/upstream.js";
+import { classifyAuth } from "../src/auth.ts";
+import { logAccess } from "../src/log.ts";
+import { errorRedirect, successResponse } from "../src/proxy-response.ts";
+import { fetchUpstream } from "../src/upstream.ts";
 
 export default async function handler(request: Request): Promise<Response> {
 	const requestId = randomUUID();

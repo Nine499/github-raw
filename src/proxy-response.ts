@@ -5,12 +5,11 @@
  * 成功响应透传上游状态码与白名单头部，响应体保持原始流。
  */
 
-// 相对导入写编译后扩展名 .js（Vercel 1:1 转译后由纯 Node ESM 加载）。
 import {
 	CACHE_CONTROL,
 	DEFAULT_CONTENT_TYPE,
 	ERROR_REDIRECT_URL,
-} from "./config.js";
+} from "./config.ts";
 
 const FORWARDED_RESPONSE_HEADERS = [
 	"etag",

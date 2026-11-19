@@ -2,8 +2,7 @@
  * 鉴权：校验请求中的 nine-token 与服务端令牌。
  */
 
-// 相对导入写编译后扩展名 .js（Vercel 1:1 转译后由纯 Node ESM 加载）。
-import { readAccessToken } from "./config.js";
+import { readAccessToken } from "./config.ts";
 
 export type AuthStatus = "missing" | "not-configured" | "invalid" | "valid";
 
