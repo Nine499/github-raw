@@ -4,6 +4,26 @@
 
 它适合把 GitHub Raw 文件放到一个自有域名下，并统一增加访问令牌与缓存策略。项目刻意保持轻量：没有前端、没有数据库、没有运行时依赖、没有构建步骤。
 
+## 快速开始
+
+**部署上线（三步）**：
+
+1. 将本仓库导入 Vercel（**Add New → Project**），保持默认无构建部署。
+2. 在 **Settings → Environment Variables** 配置必填的 `NINE49TOKEN`（代理入口令牌），可选 `GITHUB49TOKEN`（请求 GitHub Raw 用的 token）。
+3. 部署完成后即可使用：
+
+   ```text
+   https://<你的域名>/<owner>/<repo>/<branch>/<file-path>?nine-token=<NINE49TOKEN>
+   ```
+
+**本地开发（三命令）**：
+
+```bash
+pnpm install          # 仅 devDependencies，无运行时依赖
+pnpm run typecheck    # tsc --noEmit
+pnpm run biome:check  # Biome 检查
+```
+
 ## 目录
 
 - [工作原理](#工作原理)
@@ -50,14 +70,7 @@ https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<file-path>
 
 ### 1. 导入 Vercel
 
-1. 将本仓库推送到你有权使用的 Git 仓库。
-2. 在 Vercel 中选择 **Add New → Project**。
-3. 导入该仓库。
-4. 保持默认的无构建部署方式；本项目没有需要执行的 build 命令。
-5. 在部署前配置下面的环境变量。
-6. 点击部署。
-
-也可以使用 Vercel 的其他受支持导入方式，但必须确保项目根目录包含 `vercel.json`、`api/index.ts` 和本 README 所描述的文件。
+按「快速开始」的三步操作：将本仓库推送到你有权使用的 Git 仓库后在 Vercel 导入，保持默认的无构建部署方式（本项目没有 build 命令），部署前配好环境变量。也可以使用 Vercel 的其他受支持导入方式，但必须确保项目根目录包含 `vercel.json`、`api/index.ts` 和本 README 所描述的文件。
 
 ### 2. 配置环境变量
 
@@ -257,7 +270,8 @@ curl -i 'https://<domain>/octocat/Hello-World/master/README?nine-token=<NINE49TO
 ├── vercel.json           # 全路径 rewrite：/ → /api/index?path=:path*
 ├── tsconfig.json         # TypeScript 配置（noEmit，仅本地类型检查）
 ├── package.json          # 仅 devDependencies（typescript/biome/@types/node）
-├── CLAUDE.md             # 面向未来 Claude Code 实例的仓库指导
+├── CLAUDE.md             # 指向 AGENTS.md 的入口指针
+├── AGENTS.md             # Agent 工程文档（单一事实源）
 ├── README.md             # 面向使用者的部署与接口说明
 ├── License               # 许可证文本
 └── .gitignore            # Git 忽略规则
@@ -274,3 +288,5 @@ curl -i 'https://<domain>/octocat/Hello-World/master/README?nine-token=<NINE49TO
 ## 许可证
 
 许可证文本位于仓库根目录的 `License` 文件中。
+
+面向编程 Agent 的工程文档（架构、契约、红线）见 [AGENTS.md](AGENTS.md)。
