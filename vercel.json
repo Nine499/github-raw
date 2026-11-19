@@ -1,12 +1,11 @@
 {
-	"$schema": "https://openapi.vercel.sh/vercel.json",
-	"github": {
-		"silent": true
-	},
-	"rewrites": [
-		{
-			"source": "/:path*",
-			"destination": "/api/index?path=:path*"
-		}
-	]
+  "github": {
+    "silent": true
+  },
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "destination": "/api/github-raw.js?path=:path*"
+    }
+  ]
 }

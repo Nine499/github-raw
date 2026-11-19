@@ -2,7 +2,7 @@
 
 一个部署在 [Vercel](https://vercel.com/) 上的轻量 GitHub Raw 文件代理。访问者使用项目配置的令牌请求一个 GitHub 仓库文件，服务端向 `raw.githubusercontent.com` 获取文件，再以原始响应体返回。
 
-它适合把 GitHub Raw 文件放到一个自有域名下，并统一增加访问令牌与缓存策略。项目刻意保持轻量：没有前端、没有数据库、没有运行时依赖、没有构建步骤。
+它适合把 GitHub Raw 文件放到一个自有域名下，并统一增加访问令牌与缓存策略。项目刻意保持极简：没有前端、数据库、第三方依赖、构建步骤或测试框架。
 
 ## 目录
 
@@ -27,9 +27,9 @@
   │  GET /<owner>/<repo>/<branch>/<file-path>?nine-token=...
   ▼
 Vercel rewrite
-  │  /api/index?path=<原始路径>
+  │  /api/github-raw.js?path=<原始路径>
   ▼
-api/index.ts
+api/github-raw.js
   │  校验 nine-token
   │  可选地携带 GITHUB49TOKEN 请求 GitHub
   ▼
@@ -41,7 +41,7 @@ https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<file-path>
 `vercel.json` 中的 rewrite 会把所有路径交给同一个函数：
 
 ```text
-/:path*  →  /api/index?path=:path*
+/:path*  →  /api/github-raw.js?path=:path*
 ```
 
 因此 URL 中的仓库路径不需要再写成 `path` 查询参数；`path` 是 Vercel 在内部注入的参数。访问代理根路径时，内部 `path` 为空。
@@ -57,14 +57,16 @@ https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<file-path>
 5. 在部署前配置下面的环境变量。
 6. 点击部署。
 
-也可以使用 Vercel 的其他受支持导入方式，但必须确保项目根目录包含 `vercel.json`、`api/index.ts` 和本 README 所描述的文件。
+也可以使用 Vercel 的其他受支持导入方式，但必须确保项目根目录包含 `vercel.json`、`api/github-raw.js` 和 `README.md` 所描述的文件。
 
 ### 2. 配置环境变量
 
-| 变量名          | 是否必填 | 用途                                                                |
-| --------------- | -------- | ------------------------------------------------------------------- |
-| `NINE49TOKEN`   | 必填     | 代理入口令牌；请求中的 `nine-token` 必须与它完全一致                |
-| `GITHUB49TOKEN` | 可选     | 请求 GitHub Raw 时使用的 GitHub token，可提高受限流量场景下的可用性 |
+在 Vercel 项目的 **Settings → Environment Variables** 中配置：
+
+| 变量名 | 是否必填 | 用途 |
+| --- | --- | --- |
+| `NINE49TOKEN` | 必填 | 代理入口令牌；请求中的 `nine-token` 必须与它完全一致 |
+| `GITHUB49TOKEN` | 可选 | 请求 GitHub Raw 时使用的 GitHub token，可提高受限流量场景下的可用性 |
 
 环境变量修改后，需要按 Vercel 的规则重新部署或使新部署生效。令牌应只放在 Vercel 环境变量中，不要写入仓库文件、URL 示例的真实值、提交信息或公开日志。
 
@@ -141,17 +143,17 @@ curl --fail --location \
 
 以下情况都会记录访问摘要，然后返回 `302` 并跳转到固定地址：
 
-| 情况                               | 结果                             |
-| ---------------------------------- | -------------------------------- |
-| `nine-token` 缺失或不正确          | `302` → `https://www.baidu.com/` |
-| `NINE49TOKEN` 未配置               | `302` → `https://www.baidu.com/` |
-| `path` 为空                        | `302` → `https://www.baidu.com/` |
-| 请求 GitHub Raw 时发生网络错误     | `302` → `https://www.baidu.com/` |
+| 情况 | 结果 |
+| --- | --- |
+| `nine-token` 缺失或不正确 | `302` → `https://www.baidu.com/` |
+| `NINE49TOKEN` 未配置 | `302` → `https://www.baidu.com/` |
+| `path` 为空 | `302` → `https://www.baidu.com/` |
+| 请求 GitHub Raw 时发生网络错误 | `302` → `https://www.baidu.com/` |
 | GitHub Raw 返回 `400` 或更高状态码 | `302` → `https://www.baidu.com/` |
 
 错误重定向的 `Location` 始终是固定百度地址，不包含原始路径、查询参数或任何令牌；错误响应使用 `Cache-Control: no-store`。
 
-这意味着代理不会把上游 `4xx`/`5xx` 状态码或错误正文直接交给客户端。不会自动跟随重定向的客户端将看到 `302`；会自动跟随的客户端最终会访问固定地址。
+这意味着代理不会把上游 `4xx`/`5xx` 状态码或错误正文直接交给客户端，也不会继续提供原先可能存在的 `400`、`403` 或 `502` 错误正文。不会自动跟随重定向的客户端将看到 `302`；会自动跟随的客户端最终会访问固定地址。
 
 ## 缓存与请求头
 
@@ -197,36 +199,36 @@ curl --fail --location \
 
 ## 本地检查与开发
 
-### 工具链
+### 当前工具链
 
-- 包管理只用 pnpm；Node 版本以 `.node-version` 为准（fnm use）。
-- 类型检查：`pnpm run typecheck`（TypeScript，零 emit）。
-- 代码检查与格式化：`pnpm run biome:check`；自动修复用 `pnpm run biome:fix`。
+仓库没有 `package.json`，也没有依赖锁文件、构建系统、lint 配置、测试框架或 npm scripts。因此以下命令当前不存在且不应作为项目命令使用：
 
-```bash
-pnpm install
-pnpm run typecheck
-pnpm run biome:check
-```
+- `npm run build`
+- `npm test`
+- `npm run lint`
+- 单个测试文件命令
 
-### 本地冒烟测试
+### 语法检查
 
-Node 24 原生支持直接运行 TypeScript，可在不部署的情况下验证函数行为（会真实访问 GitHub Raw）：
+在仓库根目录执行：
 
 ```bash
-NINE49TOKEN=testtoken node --input-type=module -e "
-const mod = await import('./api/index.ts');
-const h = mod.default;
-const res = await h(new Request('https://x.vercel.app/api/index?path=octocat/Hello-World/master/README&nine-token=testtoken'));
-console.log(res.status, res.headers.get('content-type'));
-"
+node --check api/github-raw.js
 ```
+
+### ES module 加载检查
+
+```bash
+node --input-type=module -e "await import('./api/github-raw.js')"
+```
+
+这两条命令只检查 JavaScript 是否能被 Node 解析/加载，不会模拟 Vercel 的 `req`/`res`，也不会发起 GitHub 请求。
 
 ### 查看改动与空白问题
 
 ```bash
 git status --short
-git diff
+git diff -- api/github-raw.js README.md vercel.json CLAUDE.md
 git diff --check
 ```
 
@@ -240,35 +242,27 @@ curl -i 'https://<domain>/octocat/Hello-World/master/README'
 curl -i 'https://<domain>/octocat/Hello-World/master/README?nine-token=<NINE49TOKEN>'
 ```
 
-预期分别是空路径错误跳转、缺少 token 的鉴权错误跳转，以及在有效配置下跟随 GitHub Raw 的非错误状态、原始响应体和固定缓存头。第三条依赖网络、Vercel 部署和上游仓库可用。
+可观察到的重点是：空路径和缺少令牌时出现固定 `302`，有效请求时状态码与上游非错误响应一致、响应体仍是原始文件，并带有固定 `Cache-Control`。有效请求检查依赖已部署的 Vercel 项目、正确环境变量、网络和 GitHub 上游可用性。
 
 ## 项目文件
 
 ```text
 .
 ├── api/
-│   └── index.ts          # 唯一业务入口：装配鉴权、上游请求、响应与日志
-├── src/
-│   ├── auth.ts           # 鉴权分类（missing/not-configured/invalid/valid）
-│   ├── config.ts         # 环境变量名与固定常量（兼容性契约所在）
-│   ├── log.ts            # 脱敏日志（safePath + 字段拼接）
-│   ├── proxy-response.ts # 302 错误跳转与流式成功响应构造
-│   └── upstream.ts       # 上游请求头白名单与 GitHub Raw 请求
-├── vercel.json           # 全路径 rewrite：/ → /api/index?path=:path*
-├── tsconfig.json         # TypeScript 配置（noEmit，仅本地类型检查）
-├── package.json          # 仅 devDependencies（typescript/biome/@types/node）
-├── CLAUDE.md             # 面向未来 Claude Code 实例的仓库指导
-├── README.md             # 面向使用者的部署与接口说明
-├── License               # 许可证文本
-└── .gitignore            # Git 忽略规则
+│   └── github-raw.js   # 唯一业务函数：鉴权、上游请求、响应与日志
+├── vercel.json          # 全路径 rewrite 配置
+├── CLAUDE.md            # 面向未来 Claude Code 实例的仓库指导
+├── README.md            # 面向使用者的部署与接口说明
+├── License              # 许可证文本
+└── .gitignore           # Git 忽略规则
 ```
 
 ## 限制与注意事项
 
 - 这是固定用途的 GitHub Raw 代理，不是通用 HTTP 代理；不要未经明确需求增加任意目标主机、任意方法或任意响应头转发。
-- 性能关键路径是响应体流式转发：`successResponse` 直接把上游 `ReadableStream` 作为响应体，不要改成 `arrayBuffer()`、`Buffer` 或其他整包读入方式。
+- 性能关键路径是响应体流式转发；不要改成 `arrayBuffer()`、`Buffer` 或其他整包读入方式，否则大文件会增加内存压力。
 - `path` 由 Vercel rewrite 注入。修改 rewrite、查询参数、环境变量、鉴权、状态码、重定向或缓存行为时，应同时更新相关代码和本文档。
-- 本仓库没有自动化行为测试；行为变更应在条件允许时通过已部署域名进行 HTTP 合约检查，或用上面的本地冒烟方式验证。
+- 当前项目没有本地自动化行为测试。行为变更应在条件允许时通过已部署域名进行 HTTP 合约检查，并如实区分本地静态检查与部署后验证。
 - GitHub Raw 的可访问性、限流、仓库权限和上游响应内容由 GitHub 决定；`GITHUB49TOKEN` 只影响代理请求上游时的认证，不会改变代理入口令牌规则。
 
 ## 许可证
