@@ -21,18 +21,19 @@ pnpm run biome:check # lint + format check
 pnpm run biome:fix   # auto-fix
 ```
 
-Local smoke test — Node 24 runs the TS directly via type stripping; hits the real GitHub Raw:
+Local smoke test — compiles to plain ESM first (mirroring what runs in production), then drives the emitted JS; hits the real GitHub Raw:
 
 ```bash
+pnpm run smoke:build   # tsc -p tsconfig.smoke.json → dist-smoke/
 NINE49TOKEN=testtoken node --input-type=module -e "
-const mod = await import('./api/index.ts');
+const mod = await import('./dist-smoke/api/index.js');
 const h = mod.default;
 const res = await h(new Request('https://x.vercel.app/api/index?path=octocat/Hello-World/master/README&nine-token=testtoken'));
 console.log(res.status, res.headers.get('content-type'));
 "
 ```
 
-Cover error branches by dropping the `nine-token` param or emptying `path`.
+Cover error branches by dropping the `nine-token` param or emptying `path`. `dist-smoke/` is a throwaway artifact — delete it after use; it is git-ignored. A first valid request may 302 with `upstream-network-error` if GitHub Raw is slow from your network; retry before concluding the code is broken.
 
 Deployed contract check (substitute `<domain>` and `<NINE49TOKEN>`; use `curl -i`, never `-L`, when inspecting redirects):
 
@@ -54,7 +55,8 @@ src/
   proxy-response.ts   # errorRedirect() (302 + no-store) and successResponse() (streaming)
   log.ts              # logAccess() + safePath(); path redaction happens inside this module
 vercel.json           # the only rewrite: /:path* → /api/index?path=:path*
-tsconfig.json         # strict, noEmit, allowImportingTsExtensions
+tsconfig.json         # strict, noEmit (typecheck config)
+tsconfig.smoke.json   # smoke-compile config (emit JS to dist-smoke/, nodenext)
 package.json          # devDependencies only, no runtime deps
 .node-version         # Node pin (v24.22.3)
 ```
@@ -87,6 +89,7 @@ package.json          # devDependencies only, no runtime deps
 ## Traps
 
 - `successResponse` passes the upstream `ReadableStream` straight through as the response body. Do not revert to `arrayBuffer()`, `Buffer`, or Node stream adapters (`Readable.fromWeb` + `pipeline`) — streaming is the performance-critical path.
+- **Relative imports must use the post-build `.js` extension** (`from "./config.js"`), never `.ts`. Vercel transpiles `api/` functions near 1:1 without bundling; at runtime the plain Node ESM loader resolves imports, and it cannot resolve `.ts` specifiers — the function crashes with `FUNCTION_INVOCATION_FAILED` in production while `tsc --noEmit` and local type stripping both stay green. This exact failure shipped once; see the `smoke:build` flow for how to catch it locally.
 - The rewrite destination `/api/index` carries no file extension; this matches Vercel's documented rewrite form. If a deployed 404 appears where the function should be, suspect the rewrite destination first. This can only be verified post-deploy.
 - No test framework exists. Do not introduce one for a small change; report which behaviors were verified locally vs. which are static-check only.
 - Never echo real token values into logs, commits, or docs — placeholders only.

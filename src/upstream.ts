@@ -5,11 +5,12 @@
  * （如 Cookie、Authorization）透传给上游。
  */
 
+// 相对导入写编译后扩展名 .js（Vercel 1:1 转译后由纯 Node ESM 加载）。
 import {
 	RAW_BASE_URL,
 	readGithubToken,
 	UPSTREAM_USER_AGENT,
-} from "./config.ts";
+} from "./config.js";
 
 const FORWARDED_REQUEST_HEADERS = [
 	"if-none-match",

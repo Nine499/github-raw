@@ -4,6 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"typecheck": "tsc --noEmit",
+		"smoke:build": "tsc -p tsconfig.smoke.json",
 		"biome:check": "biome check .",
 		"biome:fix": "biome check --write ."
 	},

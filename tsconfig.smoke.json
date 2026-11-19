@@ -1,0 +1,10 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"outDir": "dist-smoke"
+	},
+	"include": ["api/**/*.ts", "src/**/*.ts"]
+}

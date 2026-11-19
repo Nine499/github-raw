@@ -224,16 +224,19 @@ pnpm run biome:check
 
 ### 本地冒烟测试
 
-Node 24 原生支持直接运行 TypeScript，可在不部署的情况下验证函数行为（会真实访问 GitHub Raw）：
+先编译出与生产同形态的 ESM 产物，再驱动它验证函数行为（会真实访问 GitHub Raw）：
 
 ```bash
+pnpm run smoke:build
 NINE49TOKEN=testtoken node --input-type=module -e "
-const mod = await import('./api/index.ts');
+const mod = await import('./dist-smoke/api/index.js');
 const h = mod.default;
 const res = await h(new Request('https://x.vercel.app/api/index?path=octocat/Hello-World/master/README&nine-token=testtoken'));
 console.log(res.status, res.headers.get('content-type'));
 "
 ```
+
+`dist-smoke/` 是一次性产物，验证后可删除。首次有效请求若因 GitHub Raw 网络波动返回 302（日志分类为 `upstream-network-error`），重试即可，不代表代码问题。
 
 ### 查看改动与空白问题
 
@@ -269,6 +272,7 @@ curl -i 'https://<domain>/octocat/Hello-World/master/README?nine-token=<NINE49TO
 │   └── upstream.ts       # 上游请求头白名单与 GitHub Raw 请求
 ├── vercel.json           # 全路径 rewrite：/ → /api/index?path=:path*
 ├── tsconfig.json         # TypeScript 配置（noEmit，仅本地类型检查）
+├── tsconfig.smoke.json   # 冒烟编译配置（产出 dist-smoke/ 的纯 ESM）
 ├── package.json          # 仅 devDependencies（typescript/biome/@types/node）
 ├── CLAUDE.md             # 指向 AGENTS.md 的入口指针
 ├── AGENTS.md             # Agent 工程文档（单一事实源）
